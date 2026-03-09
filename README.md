@@ -48,8 +48,21 @@ REJECTED: Manual FCA review required for amounts over £10k.
 
 1. **AI Agent** extracts transaction amount and currency from natural language
 2. **Tool Invocation** calls `checkAMLStatus(amount, currency)`
-3. **Local Processing** verifies against FCA rules (>£10k GBP requires review)
+3. **Local Regulatory Database** verifies against FCA rules (>£10k GBP requires review)
 4. **Response** returns compliance status
+
+### Architecture
+
+```
+User Query → AI Agent → Tool Call → Local Regulatory Database → Compliance Result
+                ↓
+         (Ollama LLM)              (TradeTools.checkAMLStatus)
+```
+
+**Key Components:**
+- **Local LLM (Ollama)**: Processes natural language queries without sending data to external APIs
+- **Local Regulatory Database**: FCA AML rules stored and processed locally for data sovereignty
+- **OpenTelemetry**: Observability for monitoring agent behavior and tool invocations
 
 ## Configuration
 
