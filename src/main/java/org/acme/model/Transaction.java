@@ -10,5 +10,3 @@ public class Transaction {
     public String purpose;
     public String status;
 }
-
-// Made with Bob

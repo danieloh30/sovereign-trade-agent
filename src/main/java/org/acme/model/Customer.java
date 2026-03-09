@@ -8,5 +8,3 @@ public class Customer {
     public Double creditLimit;
     public String country;
 }
-
-// Made with Bob
