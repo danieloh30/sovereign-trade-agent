@@ -76,11 +76,6 @@
             <artifactId>quarkus-rest-client-jackson</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.quarkiverse.quinoa</groupId>
-            <artifactId>quarkus-quinoa</artifactId>
-            <version>${quarkus.quinoa.version}</version>
-        </dependency>
-        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-observability-devservices-lgtm</artifactId>
             <scope>provided</scope>
@@ -147,6 +142,21 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>ui</id>
+            <activation>
+                <property>
+                    <name>!skipUI</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>io.quarkiverse.quinoa</groupId>
+                    <artifactId>quarkus-quinoa</artifactId>
+                    <version>${quarkus.quinoa.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
         <profile>
             <id>native</id>
             <activation>
