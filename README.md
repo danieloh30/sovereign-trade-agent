@@ -88,7 +88,7 @@ User Query ───────────────────────
                                             ▼
                                     ┌───────────────┐
                                     │ OpenTelemetry │
-                                    │ (Observability)│
+                                    │(Observability)│
                                     └───────────────┘
 ```
 
