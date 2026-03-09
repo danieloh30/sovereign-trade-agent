@@ -36,6 +36,47 @@ REJECTED: Manual FCA review required for amounts over £10k.
 3. Paste the query above
 4. Submit
 
+### Verify Telemetry in Grafana
+
+After running the test above, verify that telemetry data is being collected:
+
+1. **Access Grafana Dashboard:**
+   - Open Quarkus Dev UI: <http://localhost:8080/q/dev/>
+   - Look for "Observability" section
+   - Click on the Grafana link (usually <http://localhost:3000>)
+
+2. **View Traces in Tempo:**
+   - In Grafana, go to **Explore** (compass icon)
+   - Select **Tempo** as the data source
+   - Click **Search** tab
+   - Filter by:
+     - Service Name: `sovereign-trade-agent`
+     - Span Name: `checkAMLStatus` or `getCustomerInfo`
+   - Click **Run Query**
+
+3. **What You Should See:**
+   - Trace showing the full request flow
+   - Span for `checkAMLStatus` with attributes:
+     - `transaction.amount`: 12500.0
+     - `transaction.currency`: GBP
+   - Child spans for:
+     - PostgreSQL database queries
+     - Hibernate ORM operations
+   - Total execution time for each operation
+
+4. **View Metrics in Mimir:**
+   - In Grafana, go to **Explore**
+   - Select **Mimir** as the data source
+   - Query: `http_server_requests_seconds_count{uri="/trade/analyze"}`
+   - See request counts and response times
+
+5. **View Logs in Loki:**
+   - In Grafana, go to **Explore**
+   - Select **Loki** as the data source
+   - Query: `{job="sovereign-trade-agent"}`
+   - See application logs with trace correlation
+
+
 ### Test Cases
 
 | Amount | Currency | Expected Result |
