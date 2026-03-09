@@ -81,10 +81,6 @@
             <artifactId>quarkus-rest-client-jackson</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-vertx-http</artifactId>
-        </dependency>
-        <dependency>
 			<groupId>io.quarkus</groupId>
 			<artifactId>quarkus-observability-devservices-lgtm</artifactId>
 			<scope>provided</scope>
