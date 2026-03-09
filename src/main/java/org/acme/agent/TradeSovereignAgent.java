@@ -3,17 +3,19 @@ package org.acme.agent;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import io.quarkiverse.langchain4j.RegisterAiService;
-import jakarta.enterprise.context.ApplicationScoped;
 
-@RegisterAiService
-@ApplicationScoped
+@RegisterAiService(tools = TradeTools.class)
 public interface TradeSovereignAgent {
 
     @SystemMessage("""
-        You are a Sovereign Trade Assistant for the Singaporean market. 
-        You have access to local regulatory tools and the internal ERP.
-        Analyze the user's trade claim. If information is missing, use your tools.
-        Always ensure data remains within the 'SG-LOCAL' boundary.
+        You are a Sovereign Trade Assistant for the London market.
+        
+        For every transaction query:
+        1. Extract amount and currency from the user's message
+        2. Call checkAMLStatus tool with these values
+        3. Return only the tool's result
+        
+        Example: "£12,500" → checkAMLStatus(12500, "GBP")
         """)
-    String processClaim(@UserMessage String claimDetails);
+    String verifyTransaction(@UserMessage String claimDetails);
 }

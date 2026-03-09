@@ -1,15 +1,13 @@
-package org.acme;
+package org.acme.agent;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import org.acme.agent.TradeSovereignAgent;
 
 @Path("/trade")
-public class TradeResourceTest {
+public class TradeResource {
 
-    @Inject
-    TradeSovereignAgent agent;
+    @Inject TradeSovereignAgent agent;
 
     @POST
     @Path("/analyze")

@@ -1,70 +1,73 @@
-# sovereign-trade-agent
+# Sovereign Trade Agent
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
-
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+An AI-powered trade compliance assistant for the London market that uses local LLMs to verify transactions against FCA anti-money laundering (AML) rules.
 
 ## Running the application in dev mode
 
-You can run your application in dev mode that enables live coding using:
+Quarkus Dev Services will automatically start Ollama and OpenTelemetry containers:
 
 ```shell script
 ./mvnw quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+> **_NOTE:_** Quarkus Dev UI is available at <http://localhost:8080/q/dev/>
 
-## Packaging and running the application
+## Demo Scenario
 
-The application can be packaged using:
+### Test the AML Check Tool
 
-```shell script
-./mvnw package
+Send a transaction query that exceeds the £10,000 threshold:
+
+**Using curl:**
+```bash
+curl -X POST http://localhost:8080/trade/analyze \
+  -H "Content-Type: text/plain" \
+  -d "I have a customer, 'London Tech Ltd', trying to move £12,500 to a new vendor in Estonia for 'Cloud Services'. Before I approve this, check our local AML rules."
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
-
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+**Expected Response:**
+```
+REJECTED: Manual FCA review required for amounts over £10k.
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+**Using Dev UI:**
+1. Navigate to <http://localhost:8080/q/dev/>
+2. Find the REST endpoint `/trade/analyze`
+3. Paste the query above
+4. Submit
 
-## Creating a native executable
+### Test Cases
 
-You can create a native executable using:
+| Amount | Currency | Expected Result |
+|--------|----------|----------------|
+| £12,500 | GBP | REJECTED (>£10k) |
+| £8,000 | GBP | CLEARED (≤£10k) |
+| €15,000 | EUR | CLEARED (not GBP) |
 
-```shell script
-./mvnw package -Dnative
+## How It Works
+
+1. **AI Agent** extracts transaction amount and currency from natural language
+2. **Tool Invocation** calls `checkAMLStatus(amount, currency)`
+3. **Local Processing** verifies against FCA rules (>£10k GBP requires review)
+4. **Response** returns compliance status
+
+## Configuration
+
+Edit `src/main/resources/application.properties`:
+
+```properties
+# LLM Model (must support tool calling)
+quarkus.langchain4j.ollama.chat-model.model-id=llama3.2
+
+# Ollama endpoint
+quarkus.langchain4j.ollama.base-url=http://localhost:11434
+
+# OpenTelemetry (optional)
+quarkus.otel.exporter.otlp.endpoint=http://localhost:4317
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+## Learn More
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/sovereign-trade-agent-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- Kubernetes ([guide](https://quarkus.io/guides/kubernetes)): Generate Kubernetes resources from annotations
-- SmallRye OpenAPI ([guide](https://quarkus.io/guides/openapi-swaggerui)): Document your REST APIs with OpenAPI - comes with Swagger UI
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- LangChain4j Ollama ([guide](https://docs.quarkiverse.io/quarkus-langchain4j/dev/guide-ollama.html)): Provides the basic integration of Ollama with LangChain4j
-
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+- [Quarkus](https://quarkus.io/)
+- [Quarkus LangChain4j](https://docs.quarkiverse.io/quarkus-langchain4j/dev/)
+- [Ollama](https://ollama.ai/)
