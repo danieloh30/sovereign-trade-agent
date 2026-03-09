@@ -15,6 +15,8 @@ Quarkus Dev Services will automatically start Ollama and OpenTelemetry container
 
 Access the React-based web interface at <http://localhost:8080>
 
+![Web UI](assets/web_ui.png)
+
 The UI provides:
 - Interactive transaction query form
 - Real-time compliance assessment
@@ -24,6 +26,8 @@ The UI provides:
 > **_NOTE:_** Quarkus Dev UI is available at <http://localhost:8080/q/dev/>
 
 ## Demo Scenario
+
+![Demo Scenario](assets/demo_scenario.png)
 
 ### Test the AML Check Tool
 
