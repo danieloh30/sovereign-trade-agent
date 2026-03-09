@@ -4,20 +4,23 @@
 }
 
 .card {
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   border-radius: 16px;
   padding: 40px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 h1 {
-  color: #667eea;
+  color: #1e3a8a;
   margin-bottom: 10px;
   font-size: 2.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .subtitle {
-  color: #666;
+  color: #475569;
   margin-bottom: 30px;
   font-size: 1.1rem;
 }
@@ -30,7 +33,7 @@ label {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #333;
+  color: #1e293b;
 }
 
 textarea {
@@ -42,11 +45,12 @@ textarea {
   font-family: inherit;
   resize: vertical;
   transition: border-color 0.3s;
+  background: white;
 }
 
 textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #1e3a8a;
 }
 
 .button-group {
@@ -66,14 +70,14 @@ button {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
   color: white;
   flex: 1;
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
 }
 
 .btn-primary:disabled {
@@ -82,34 +86,34 @@ button {
 }
 
 .btn-secondary {
-  background: #f5f5f5;
-  color: #333;
+  background: #f1f5f9;
+  color: #1e293b;
 }
 
 .btn-secondary:hover {
-  background: #e0e0e0;
+  background: #e2e8f0;
 }
 
 .response {
-  background: #f8f9fa;
-  border-left: 4px solid #667eea;
+  background: rgba(241, 245, 249, 0.9);
+  border-left: 4px solid #1e3a8a;
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
 }
 
 .response h3 {
-  color: #667eea;
+  color: #1e3a8a;
   margin-bottom: 12px;
 }
 
 .response p {
-  color: #333;
+  color: #1e293b;
   line-height: 1.6;
 }
 
 .info {
-  background: #f0f4ff;
+  background: rgba(219, 234, 254, 0.9);
   padding: 20px;
   border-radius: 8px;
   margin-top: 20px;
@@ -118,7 +122,7 @@ button {
 .info p {
   margin-bottom: 10px;
   font-weight: 600;
-  color: #667eea;
+  color: #1e3a8a;
 }
 
 .info ul {
@@ -128,6 +132,7 @@ button {
 
 .info li {
   padding: 8px 0;
-  color: #555;
+  color: #475569;
 }
 
+/* Made with Bob */
