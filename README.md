@@ -46,23 +46,73 @@ REJECTED: Manual FCA review required for amounts over £10k.
 
 ## How It Works
 
-1. **AI Agent** extracts transaction amount and currency from natural language
-2. **Tool Invocation** calls `checkAMLStatus(amount, currency)`
-3. **Local Regulatory Database** verifies against FCA rules (>£10k GBP requires review)
-4. **Response** returns compliance status
+1. **AI Agent** extracts transaction details from natural language
+2. **Tool Invocation** calls multiple tools:
+   - `checkAMLStatus(amount, currency)` - Queries local regulatory database
+   - `getCustomerInfo(customerId)` - Retrieves data from Enterprise ERP
+3. **Data Integration** combines:
+   - **Local Regulatory Database** - FCA AML rules (>£10k GBP requires review)
+   - **Enterprise ERP** - Customer account details, risk levels, credit limits
+4. **Response** returns comprehensive compliance assessment
 
 ### Architecture
 
 ```
-User Query → AI Agent → Tool Call → Local Regulatory Database → Compliance Result
-                ↓
-         (Ollama LLM)              (TradeTools.checkAMLStatus)
+                                    ┌─────────────────────────┐
+                                    │   Regional LLM          │
+                                    │   (KServe/Ollama)       │
+                                    └───────────┬─────────────┘
+                                                │
+                                                ▼
+User Query ──────────────────────────►  AI Agent (LangChain4j)
+                                                │
+                                                ▼
+                                        ┌───────┴───────┐
+                                        │  Tool Router  │
+                                        └───┬───────┬───┘
+                                            │       │
+                    ┌───────────────────────┘       └──────────────────────┐
+                    ▼                                                       ▼
+        ┌─────────────────────────┐                         ┌─────────────────────────┐
+        │ Local Regulatory DB     │                         │  Enterprise ERP         │
+        │ (PostgreSQL)            │                         │  (REST API)             │
+        │ - FCA AML Rules         │                         │ - Customer Data         │
+        │ - Compliance Thresholds │                         │ - Account Info          │
+        │ - Multi-currency        │                         │ - Risk Levels           │
+        └─────────────────────────┘                         └─────────────────────────┘
+                    │                                                       │
+                    └───────────────────────┬───────────────────────────────┘
+                                            ▼
+                                  Compliance Assessment
+                                            │
+                                            ▼
+                                    ┌───────────────┐
+                                    │ OpenTelemetry │
+                                    │ (Observability)│
+                                    └───────────────┘
 ```
 
 **Key Components:**
-- **Local LLM (Ollama)**: Processes natural language queries without sending data to external APIs
-- **Local Regulatory Database**: FCA AML rules stored and processed locally for data sovereignty
-- **OpenTelemetry**: Observability for monitoring agent behavior and tool invocations
+
+1. **Regional LLM (KServe/Ollama)**
+   - Runs locally or on KServe for data sovereignty
+   - Processes natural language without external API calls
+   - Supports tool calling for function invocation
+
+2. **Local Regulatory Database (PostgreSQL)**
+   - FCA AML rules stored locally
+   - Multi-currency compliance thresholds
+   - Managed by Quarkus Dev Services
+
+3. **Enterprise ERP Integration (REST Client)**
+   - Customer account information
+   - Risk assessment data
+   - Credit limits and transaction history
+
+4. **OpenTelemetry**
+   - End-to-end observability
+   - Tool invocation tracking
+   - Performance monitoring
 
 ## Configuration
 
