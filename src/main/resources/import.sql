@@ -27,5 +27,3 @@ VALUES (7, 'USD', 0.00, 'CLEARED', 'USD transaction within standard limits');
 
 -- Set sequence for auto-increment
 ALTER SEQUENCE aml_rules_seq RESTART WITH 8;
-
--- Made with Bob

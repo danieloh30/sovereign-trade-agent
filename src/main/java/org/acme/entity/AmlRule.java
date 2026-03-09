@@ -17,10 +17,8 @@ public class AmlRule extends PanacheEntity {
      * Find AML rule by currency and amount
      */
     public static AmlRule findByCurrencyAndAmount(String currency, double amount) {
-        return find("currency = ?1 and thresholdAmount <= ?2 order by thresholdAmount desc", 
+        return find("currency = ?1 and thresholdAmount <= ?2 order by thresholdAmount desc",
                     currency, amount)
                 .firstResult();
     }
 }
-
-// Made with Bob
