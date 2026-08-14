@@ -21,7 +21,11 @@ function App() {
       })
 
       const data = await res.text()
-      setResponse(data)
+      if (!res.ok) {
+        setResponse('Error: ' + data)
+      } else {
+        setResponse(data)
+      }
     } catch (error) {
       setResponse('Error: ' + error.message)
     } finally {

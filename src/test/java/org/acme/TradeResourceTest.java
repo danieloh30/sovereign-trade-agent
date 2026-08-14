@@ -1,19 +1,34 @@
 package org.acme;
 
-import jakarta.inject.Inject;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import org.acme.agent.TradeSovereignAgent;
+import io.quarkus.test.junit.QuarkusTest;
+import org.junit.jupiter.api.Test;
 
-@Path("/trade")
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.notNullValue;
+
+@QuarkusTest
 public class TradeResourceTest {
 
-    @Inject
-    TradeSovereignAgent agent;
+    @Test
+    void analyzeTransactionReturnsResponse() {
+        given()
+            .contentType("text/plain")
+            .body("Check AML status for a £12,500 GBP transaction")
+            .when()
+            .post("/trade/analyze")
+            .then()
+            .statusCode(200)
+            .body(notNullValue());
+    }
 
-    @POST
-    @Path("/analyze")
-    public String analyze(String userPrompt) {
-        return agent.verifyTransaction(userPrompt);
+    @Test
+    void analyzeTransactionWithEmptyBodyReturns400or200() {
+        given()
+            .contentType("text/plain")
+            .body("")
+            .when()
+            .post("/trade/analyze")
+            .then()
+            .statusCode(200);
     }
 }
