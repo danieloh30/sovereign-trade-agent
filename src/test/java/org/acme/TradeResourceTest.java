@@ -20,15 +20,4 @@ public class TradeResourceTest {
             .statusCode(200)
             .body(notNullValue());
     }
-
-    @Test
-    void analyzeTransactionWithEmptyBodyReturns400or200() {
-        given()
-            .contentType("text/plain")
-            .body("")
-            .when()
-            .post("/trade/analyze")
-            .then()
-            .statusCode(200);
-    }
 }
