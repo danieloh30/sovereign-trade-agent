@@ -146,7 +146,7 @@ quarkus.otel.logs.enabled=true
 
 ## Learn More
 
-- [Quarkus](https://quarkus.io/)
-- [Quarkus LangChain4j](https://docs.quarkiverse.io/quarkus-langchain4j/dev/)
-- [Quarkus LangChain4j Agentic](https://docs.quarkiverse.io/quarkus-langchain4j/dev/agentic.html)
-- [Ollama](https://ollama.ai/)
+- <a href="https://quarkus.io/" target="_blank">Quarkus</a>
+- <a href="https://docs.quarkiverse.io/quarkus-langchain4j/dev/" target="_blank">Quarkus LangChain4j</a>
+- <a href="https://docs.quarkiverse.io/quarkus-langchain4j/dev/agentic.html" target="_blank">Quarkus LangChain4j Agentic</a>
+- <a href="https://ollama.ai/" target="_blank">Ollama</a>
