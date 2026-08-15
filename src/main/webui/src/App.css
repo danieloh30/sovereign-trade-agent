@@ -151,6 +151,15 @@ a.sidebar-item:hover {
   color: #94a3b8;
 }
 
+.sidebar-status {
+  margin-left: auto;
+  font-size: 8px;
+}
+
+.sidebar-status.unavailable {
+  color: #cbd5e1;
+}
+
 .sidebar-icon {
   width: 20px;
   text-align: center;
@@ -509,73 +518,73 @@ textarea:focus {
 .info-chip-dot.amber { background: #f59e0b; }
 .info-chip-dot.purple { background: #8b5cf6; }
 
-/* Audit log table */
-.audit-table-wrap {
+/* Audit log cards */
+.audit-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.audit-card {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   overflow: hidden;
+  border-left: 4px solid #e2e8f0;
 }
 
-.audit-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
+.audit-card-rejected { border-left-color: #dc2626; }
+.audit-card-warning { border-left-color: #d97706; }
+.audit-card-cleared { border-left-color: #16a34a; }
+.audit-card-error { border-left-color: #dc2626; }
+.audit-card-unknown { border-left-color: #3b82f6; }
 
-.audit-table thead {
+.audit-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
   background: #f8fafc;
-}
-
-.audit-table th {
-  text-align: left;
-  padding: 12px 16px;
-  font-weight: 600;
-  color: #64748b;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.audit-table td {
-  padding: 12px 16px;
   border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-  vertical-align: top;
 }
 
-.audit-table tr:last-child td {
-  border-bottom: none;
-}
-
-.audit-table tr:hover {
-  background: #f8fafc;
-}
-
-.audit-time {
-  white-space: nowrap;
-  color: #94a3b8;
+.audit-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   font-size: 12px;
-}
-
-.audit-query {
-  max-width: 260px;
-  color: #475569;
-  line-height: 1.4;
-}
-
-.audit-response {
-  max-width: 240px;
-  color: #475569;
-  line-height: 1.4;
-}
-
-.audit-duration {
-  white-space: nowrap;
   color: #94a3b8;
-  font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.audit-card-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.audit-card-query {
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.audit-card-query p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.audit-card-response {
+  padding: 14px 20px;
+}
+
+.audit-card-response p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #334155;
 }
 
 .verdict-badge {

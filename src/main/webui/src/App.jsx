@@ -25,6 +25,7 @@ const SCENARIOS = [
 ]
 
 const GRAFANA_TEMPO_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceqlSearch%22%2C%22limit%22%3A20%2C%22tableType%22%3A%22traces%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
+const GRAFANA_LOKI_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
 
 function getVerdict(text) {
   const upper = text.toUpperCase()
@@ -82,36 +83,31 @@ function AuditLogView({ auditLog }) {
   }
 
   return (
-    <div className="audit-table-wrap">
-      <table className="audit-table">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Query</th>
-            <th>Verdict</th>
-            <th>Response</th>
-            <th>Duration</th>
-          </tr>
-        </thead>
-        <tbody>
-          {auditLog.slice().reverse().map((entry, i) => {
-            const verdict = getVerdict(entry.response)
-            return (
-              <tr key={i}>
-                <td className="audit-time">{entry.time}</td>
-                <td className="audit-query">{entry.query.length > 80 ? entry.query.slice(0, 80) + '...' : entry.query}</td>
-                <td>
-                  <span className={`verdict-badge ${verdict.type}`}>
-                    {verdict.icon} {verdict.label}
-                  </span>
-                </td>
-                <td className="audit-response">{entry.response}</td>
-                <td className="audit-duration">{entry.elapsed}s</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+    <div className="audit-cards">
+      {auditLog.slice().reverse().map((entry, i) => {
+        const verdict = getVerdict(entry.response)
+        return (
+          <div key={i} className={`audit-card audit-card-${verdict.type}`}>
+            <div className="audit-card-header">
+              <span className={`verdict-badge ${verdict.type}`}>
+                {verdict.icon} {verdict.label}
+              </span>
+              <div className="audit-card-meta">
+                <span>{'⏱'} {entry.elapsed}s</span>
+                <span>{entry.time}</span>
+              </div>
+            </div>
+            <div className="audit-card-query">
+              <div className="audit-card-label">Query</div>
+              <p>{entry.query}</p>
+            </div>
+            <div className="audit-card-response">
+              <div className="audit-card-label">Response</div>
+              <p>{entry.response}</p>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -238,32 +234,20 @@ function App() {
           </div>
           <div className="sidebar-section">
             <div className="sidebar-section-title">Observability</div>
-            {grafanaHref ? (
-              <a className="sidebar-item" href={grafanaHref} target="_blank" rel="noopener">
-                <span className="sidebar-icon">{'◎'}</span>
-                <span>Traces (Tempo)</span>
-                <span className="sidebar-external">{'↗'}</span>
-              </a>
-            ) : (
-              <a className="sidebar-item" href="/q/dev-ui/" target="_blank" rel="noopener">
-                <span className="sidebar-icon">{'◎'}</span>
-                <span>Traces (Tempo)</span>
-                <span className="sidebar-external">{'↗'}</span>
-              </a>
-            )}
-            {grafanaUrl ? (
-              <a className="sidebar-item" href={grafanaUrl + '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'} target="_blank" rel="noopener">
-                <span className="sidebar-icon">{'▤'}</span>
-                <span>Logs (Loki)</span>
-                <span className="sidebar-external">{'↗'}</span>
-              </a>
-            ) : (
-              <a className="sidebar-item" href="/q/dev-ui/" target="_blank" rel="noopener">
-                <span className="sidebar-icon">{'▤'}</span>
-                <span>Logs (Loki)</span>
-                <span className="sidebar-external">{'↗'}</span>
-              </a>
-            )}
+            <a className="sidebar-item" href={grafanaHref || '#'} target={grafanaHref ? '_blank' : undefined} rel="noopener"
+               onClick={grafanaHref ? undefined : (e) => e.preventDefault()}>
+              <span className="sidebar-icon">{'◎'}</span>
+              <span>Traces (Tempo)</span>
+              {grafanaHref && <span className="sidebar-external">{'↗'}</span>}
+              {!grafanaHref && <span className="sidebar-status unavailable">{'●'}</span>}
+            </a>
+            <a className="sidebar-item" href={grafanaUrl ? grafanaUrl + GRAFANA_LOKI_PATH : '#'} target={grafanaUrl ? '_blank' : undefined} rel="noopener"
+               onClick={grafanaUrl ? undefined : (e) => e.preventDefault()}>
+              <span className="sidebar-icon">{'▤'}</span>
+              <span>Logs (Loki)</span>
+              {grafanaUrl && <span className="sidebar-external">{'↗'}</span>}
+              {!grafanaUrl && <span className="sidebar-status unavailable">{'●'}</span>}
+            </a>
           </div>
           <div className="sidebar-spacer"></div>
           <div className="sidebar-footer">

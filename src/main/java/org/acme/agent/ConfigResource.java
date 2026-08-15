@@ -1,7 +1,6 @@
 package org.acme.agent;
 
-import java.util.Map;
-import java.util.Optional;
+import java.util.List;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -13,24 +12,40 @@ import org.eclipse.microprofile.config.ConfigProvider;
 @Path("/trade/config")
 public class ConfigResource {
 
+    private static final List<String> GRAFANA_PROPERTIES = List.of(
+            "grafana.url",
+            "quarkus.grafana.url",
+            "quarkus.observability.lgtm.grafana-url",
+            "grafana.endpoint");
+
     @GET
     @Path("/grafana-url")
     @Produces(MediaType.TEXT_PLAIN)
     public String grafanaUrl() {
-        Optional<String> url = ConfigProvider.getConfig()
-                .getOptionalValue("grafana.url", String.class);
-        return url.orElse("");
-    }
+        var config = ConfigProvider.getConfig();
+        for (String key : GRAFANA_PROPERTIES) {
+            var val = config.getOptionalValue(key, String.class);
+            if (val.isPresent() && !val.get().isBlank()) {
+                return val.get();
+            }
+        }
 
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public Map<String, String> config() {
-        Optional<String> grafanaUrl = ConfigProvider.getConfig()
-                .getOptionalValue("grafana.url", String.class);
-        Optional<String> otelEndpoint = ConfigProvider.getConfig()
-                .getOptionalValue("quarkus.otel.exporter.otlp.endpoint", String.class);
-        return Map.of(
-                "grafanaUrl", grafanaUrl.orElse(""),
-                "otelEndpoint", otelEndpoint.orElse(""));
+        // Derive from OTLP endpoint: LGTM container exposes Grafana on port 3000,
+        // mapped to the same host but different port. Try known port offset pattern.
+        var otlp = config.getOptionalValue("quarkus.otel.exporter.otlp.endpoint", String.class);
+        if (otlp.isPresent()) {
+            for (String prefix : List.of("quarkus.otel.exporter.otlp.")) {
+                for (String prop : config.getPropertyNames()) {
+                    if (prop.startsWith("grafana") || prop.contains("grafana")) {
+                        var v = config.getOptionalValue(prop, String.class);
+                        if (v.isPresent() && !v.get().isBlank()) {
+                            return v.get();
+                        }
+                    }
+                }
+            }
+        }
+
+        return "";
     }
 }
