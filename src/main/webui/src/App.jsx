@@ -24,6 +24,8 @@ const SCENARIOS = [
   },
 ]
 
+const GRAFANA_TEMPO_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceqlSearch%22%2C%22limit%22%3A20%2C%22tableType%22%3A%22traces%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
+
 function getVerdict(text) {
   const upper = text.toUpperCase()
   if (upper.startsWith('ERROR') || upper.includes('ERROR:'))
@@ -68,13 +70,69 @@ function useTypingEffect(text, speed = 18) {
   return { displayed, done }
 }
 
+function AuditLogView({ auditLog }) {
+  if (auditLog.length === 0) {
+    return (
+      <div className="empty-state">
+        <div className="empty-icon">☰</div>
+        <p>No transactions analyzed yet.</p>
+        <p className="empty-hint">Switch to Transaction Check and run an analysis to see entries here.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="audit-table-wrap">
+      <table className="audit-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Query</th>
+            <th>Verdict</th>
+            <th>Response</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          {auditLog.slice().reverse().map((entry, i) => {
+            const verdict = getVerdict(entry.response)
+            return (
+              <tr key={i}>
+                <td className="audit-time">{entry.time}</td>
+                <td className="audit-query">{entry.query.length > 80 ? entry.query.slice(0, 80) + '...' : entry.query}</td>
+                <td>
+                  <span className={`verdict-badge ${verdict.type}`}>
+                    {verdict.icon} {verdict.label}
+                  </span>
+                </td>
+                <td className="audit-response">{entry.response}</td>
+                <td className="audit-duration">{entry.elapsed}s</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function App() {
   const [query, setQuery] = useState('')
   const [response, setResponse] = useState('')
   const [loading, setLoading] = useState(false)
   const [activeScenario, setActiveScenario] = useState(null)
   const [elapsed, setElapsed] = useState(null)
+  const [activeView, setActiveView] = useState('check')
+  const [auditLog, setAuditLog] = useState([])
+  const [grafanaUrl, setGrafanaUrl] = useState('')
   const { displayed, done } = useTypingEffect(response)
+
+  useEffect(() => {
+    fetch('/trade/config/grafana-url')
+      .then(res => res.text())
+      .then(url => { if (url) setGrafanaUrl(url) })
+      .catch(() => {})
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -91,15 +149,35 @@ function App() {
       })
 
       const data = await res.text()
-      setElapsed(((Date.now() - start) / 1000).toFixed(1))
+      const secs = ((Date.now() - start) / 1000).toFixed(1)
+      setElapsed(secs)
       if (!res.ok) {
         setResponse('Error: ' + data)
+        setAuditLog(prev => [...prev, {
+          time: new Date().toLocaleTimeString(),
+          query,
+          response: 'Error: ' + data,
+          elapsed: secs,
+        }])
       } else {
         setResponse(data)
+        setAuditLog(prev => [...prev, {
+          time: new Date().toLocaleTimeString(),
+          query,
+          response: data,
+          elapsed: secs,
+        }])
       }
     } catch (error) {
-      setElapsed(((Date.now() - start) / 1000).toFixed(1))
+      const secs = ((Date.now() - start) / 1000).toFixed(1)
+      setElapsed(secs)
       setResponse('Error: ' + error.message)
+      setAuditLog(prev => [...prev, {
+        time: new Date().toLocaleTimeString(),
+        query,
+        response: 'Error: ' + error.message,
+        elapsed: secs,
+      }])
     } finally {
       setLoading(false)
     }
@@ -120,6 +198,7 @@ function App() {
   }
 
   const verdict = response ? getVerdict(response) : null
+  const grafanaHref = grafanaUrl ? grafanaUrl + GRAFANA_TEMPO_PATH : ''
 
   return (
     <>
@@ -141,29 +220,50 @@ function App() {
         <div className="sidebar">
           <div className="sidebar-section">
             <div className="sidebar-section-title">Operations</div>
-            <div className="sidebar-item active">
+            <div
+              className={`sidebar-item clickable${activeView === 'check' ? ' active' : ''}`}
+              onClick={() => setActiveView('check')}
+            >
               <span className="sidebar-icon">{'▶'}</span>
               <span>Transaction Check</span>
             </div>
-            <a className="sidebar-item" href="/q/dev-ui/io.quarkus.quarkus-opentelemetry" target="_blank" rel="noopener">
+            <div
+              className={`sidebar-item clickable${activeView === 'audit' ? ' active' : ''}`}
+              onClick={() => setActiveView('audit')}
+            >
               <span className="sidebar-icon">{'☰'}</span>
               <span>Audit Log</span>
-            </a>
-            <a className="sidebar-item" href="/q/dev-ui/io.quarkiverse.langchain4j.quarkus-langchain4j-agentic" target="_blank" rel="noopener">
-              <span className="sidebar-icon">{'⚑'}</span>
-              <span>Agent Monitor</span>
-            </a>
+              {auditLog.length > 0 && <span className="sidebar-count">{auditLog.length}</span>}
+            </div>
           </div>
           <div className="sidebar-section">
-            <div className="sidebar-section-title">Data Sources</div>
-            <a className="sidebar-item" href="/q/dev-ui/io.quarkus.quarkus-datasources" target="_blank" rel="noopener">
-              <span className="sidebar-icon">{'☷'}</span>
-              <span>Regulatory DB</span>
-            </a>
-            <a className="sidebar-item" href="/q/dev-ui/io.quarkus.quarkus-smallrye-openapi" target="_blank" rel="noopener">
-              <span className="sidebar-icon">{'☖'}</span>
-              <span>API Endpoints</span>
-            </a>
+            <div className="sidebar-section-title">Observability</div>
+            {grafanaHref ? (
+              <a className="sidebar-item" href={grafanaHref} target="_blank" rel="noopener">
+                <span className="sidebar-icon">{'◎'}</span>
+                <span>Traces (Tempo)</span>
+                <span className="sidebar-external">{'↗'}</span>
+              </a>
+            ) : (
+              <a className="sidebar-item" href="/q/dev-ui/" target="_blank" rel="noopener">
+                <span className="sidebar-icon">{'◎'}</span>
+                <span>Traces (Tempo)</span>
+                <span className="sidebar-external">{'↗'}</span>
+              </a>
+            )}
+            {grafanaUrl ? (
+              <a className="sidebar-item" href={grafanaUrl + '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'} target="_blank" rel="noopener">
+                <span className="sidebar-icon">{'▤'}</span>
+                <span>Logs (Loki)</span>
+                <span className="sidebar-external">{'↗'}</span>
+              </a>
+            ) : (
+              <a className="sidebar-item" href="/q/dev-ui/" target="_blank" rel="noopener">
+                <span className="sidebar-icon">{'▤'}</span>
+                <span>Logs (Loki)</span>
+                <span className="sidebar-external">{'↗'}</span>
+              </a>
+            )}
           </div>
           <div className="sidebar-spacer"></div>
           <div className="sidebar-footer">
@@ -175,96 +275,110 @@ function App() {
         </div>
 
         <div className="content">
-          <div className="page-header">
-            <h1>Transaction Compliance Check</h1>
-            <p>Verify transactions against FCA anti-money laundering rules using a sovereign AI agent</p>
-          </div>
-
-          <div className="scenarios">
-            {SCENARIOS.map((s, i) => (
-              <button
-                key={i}
-                className={`scenario-btn${activeScenario === i ? ' active' : ''}`}
-                onClick={() => loadScenario(i)}
-              >
-                <span className={`scenario-tag ${s.tag}`}>
-                  {s.tag === 'reject' ? 'REJECT' : s.tag === 'warning' ? 'WARN' : 'CLEAR'}
-                </span>
-                {s.label}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <div className="form-card">
-              <label className="form-label" htmlFor="query">Transaction Query</label>
-              <textarea
-                id="query"
-                value={query}
-                onChange={(e) => { setQuery(e.target.value); setActiveScenario(null); }}
-                placeholder="Describe the transaction you want to verify..."
-                rows="4"
-                required
-              />
-              <div className="form-actions">
-                <button type="button" onClick={handleClear} className="btn-clear">Clear</button>
-                <button type="submit" disabled={loading} className="btn-submit">
-                  {loading && <span className="spinner"></span>}
-                  {loading ? 'Analyzing...' : 'Run Analysis'}
-                </button>
+          {activeView === 'check' && (
+            <>
+              <div className="page-header">
+                <h1>Transaction Compliance Check</h1>
+                <p>Verify transactions against FCA anti-money laundering rules using a sovereign AI agent</p>
               </div>
-            </div>
-          </form>
 
-          {(response || loading) && (
-            <div className="response-card">
-              <div className="response-header">
-                {verdict ? (
-                  <>
-                    <div className={`response-verdict-icon ${verdict.type}`}>{verdict.icon}</div>
-                    <span className={`response-verdict-text ${verdict.type}`}>{verdict.label}</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="response-verdict-icon unknown">
-                      <span className="spinner" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6', width: 16, height: 16 }}></span>
+              <div className="scenarios">
+                {SCENARIOS.map((s, i) => (
+                  <button
+                    key={i}
+                    className={`scenario-btn${activeScenario === i ? ' active' : ''}`}
+                    onClick={() => loadScenario(i)}
+                  >
+                    <span className={`scenario-tag ${s.tag}`}>
+                      {s.tag === 'reject' ? 'REJECT' : s.tag === 'warning' ? 'WARN' : 'CLEAR'}
+                    </span>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleSubmit}>
+                <div className="form-card">
+                  <label className="form-label" htmlFor="query">Transaction Query</label>
+                  <textarea
+                    id="query"
+                    value={query}
+                    onChange={(e) => { setQuery(e.target.value); setActiveScenario(null); }}
+                    placeholder="Describe the transaction you want to verify..."
+                    rows="4"
+                    required
+                  />
+                  <div className="form-actions">
+                    <button type="button" onClick={handleClear} className="btn-clear">Clear</button>
+                    <button type="submit" disabled={loading} className="btn-submit">
+                      {loading && <span className="spinner"></span>}
+                      {loading ? 'Analyzing...' : 'Run Analysis'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {(response || loading) && (
+                <div className="response-card">
+                  <div className="response-header">
+                    {verdict ? (
+                      <>
+                        <div className={`response-verdict-icon ${verdict.type}`}>{verdict.icon}</div>
+                        <span className={`response-verdict-text ${verdict.type}`}>{verdict.label}</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="response-verdict-icon unknown">
+                          <span className="spinner" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6', width: 16, height: 16 }}></span>
+                        </div>
+                        <span className="response-verdict-text unknown">Processing...</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="response-body">
+                    <span className="response-text">{displayed}</span>
+                    {!done && response && <span className="response-cursor"></span>}
+                  </div>
+                  {elapsed && done && (
+                    <div className="response-meta">
+                      <span className="meta-item">{'⏱'} {elapsed}s</span>
+                      <span className="meta-item">{'☷'} Local LLM</span>
+                      <span className="meta-item">{'☑'} Sovereign Processing</span>
                     </div>
-                    <span className="response-verdict-text unknown">Processing...</span>
-                  </>
-                )}
-              </div>
-              <div className="response-body">
-                <span className="response-text">{displayed}</span>
-                {!done && response && <span className="response-cursor"></span>}
-              </div>
-              {elapsed && done && (
-                <div className="response-meta">
-                  <span className="meta-item">{'⏱'} {elapsed}s</span>
-                  <span className="meta-item">{'☷'} Local LLM</span>
-                  <span className="meta-item">{'☑'} Sovereign Processing</span>
+                  )}
                 </div>
               )}
-            </div>
+
+              <div className="info-bar">
+                <div className="info-chip">
+                  <span className="info-chip-dot blue"></span>
+                  Regional LLM (Ollama)
+                </div>
+                <div className="info-chip">
+                  <span className="info-chip-dot green"></span>
+                  Regulatory DB (PostgreSQL)
+                </div>
+                <div className="info-chip">
+                  <span className="info-chip-dot amber"></span>
+                  Enterprise ERP
+                </div>
+                <div className="info-chip">
+                  <span className="info-chip-dot purple"></span>
+                  OpenTelemetry
+                </div>
+              </div>
+            </>
           )}
 
-          <div className="info-bar">
-            <div className="info-chip">
-              <span className="info-chip-dot blue"></span>
-              Regional LLM (Ollama)
-            </div>
-            <div className="info-chip">
-              <span className="info-chip-dot green"></span>
-              Regulatory DB (PostgreSQL)
-            </div>
-            <div className="info-chip">
-              <span className="info-chip-dot amber"></span>
-              Enterprise ERP
-            </div>
-            <div className="info-chip">
-              <span className="info-chip-dot purple"></span>
-              OpenTelemetry
-            </div>
-          </div>
+          {activeView === 'audit' && (
+            <>
+              <div className="page-header">
+                <h1>Audit Log</h1>
+                <p>Session transaction history with compliance verdicts</p>
+              </div>
+              <AuditLogView auditLog={auditLog} />
+            </>
+          )}
         </div>
       </div>
     </>
