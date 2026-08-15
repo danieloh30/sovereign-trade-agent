@@ -24,8 +24,8 @@ const SCENARIOS = [
   },
 ]
 
-const GRAFANA_TEMPO_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceqlSearch%22%2C%22limit%22%3A20%2C%22tableType%22%3A%22traces%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
-const GRAFANA_LOKI_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
+const GRAFANA_TEMPO_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceqlSearch%22%2C%22limit%22%3A20%2C%22tableType%22%3A%22traces%22%2C%22filters%22%3A%5B%7B%22id%22%3A%22service-name%22%2C%22tag%22%3A%22service.name%22%2C%22operator%22%3A%22%3D%22%2C%22scope%22%3A%22resource%22%2C%22value%22%3A%5B%22sovereign-trade-agent%22%5D%2C%22valueType%22%3A%22string%22%7D%5D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
+const GRAFANA_LOKI_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22sovereign-trade-agent%5C%22%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
 
 function getVerdict(text) {
   const upper = text.toUpperCase()
