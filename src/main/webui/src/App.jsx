@@ -145,32 +145,32 @@ function App() {
               <span className="sidebar-icon">{'▶'}</span>
               <span>Transaction Check</span>
             </div>
-            <div className="sidebar-item">
+            <a className="sidebar-item" href="/q/dev-ui/io.quarkus.quarkus-opentelemetry" target="_blank" rel="noopener">
               <span className="sidebar-icon">{'☰'}</span>
               <span>Audit Log</span>
-            </div>
-            <div className="sidebar-item">
+            </a>
+            <a className="sidebar-item" href="/q/dev-ui/io.quarkiverse.langchain4j.quarkus-langchain4j-agentic" target="_blank" rel="noopener">
               <span className="sidebar-icon">{'⚑'}</span>
-              <span>Rule Management</span>
-            </div>
+              <span>Agent Monitor</span>
+            </a>
           </div>
           <div className="sidebar-section">
             <div className="sidebar-section-title">Data Sources</div>
-            <div className="sidebar-item">
+            <a className="sidebar-item" href="/q/dev-ui/io.quarkus.quarkus-datasources" target="_blank" rel="noopener">
               <span className="sidebar-icon">{'☷'}</span>
               <span>Regulatory DB</span>
-            </div>
-            <div className="sidebar-item">
+            </a>
+            <a className="sidebar-item" href="/q/dev-ui/io.quarkus.quarkus-smallrye-openapi" target="_blank" rel="noopener">
               <span className="sidebar-icon">{'☖'}</span>
-              <span>Enterprise ERP</span>
-            </div>
+              <span>API Endpoints</span>
+            </a>
           </div>
           <div className="sidebar-spacer"></div>
           <div className="sidebar-footer">
-            <div className="sidebar-footer-item">
+            <a className="sidebar-footer-item" href="/q/dev-ui/" target="_blank" rel="noopener">
               <span className="sidebar-icon">{'⚙'}</span>
-              <span>Settings</span>
-            </div>
+              <span>Dev Console</span>
+            </a>
           </div>
         </div>
 
