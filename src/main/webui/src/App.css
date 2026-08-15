@@ -151,48 +151,6 @@ a.sidebar-item:hover {
   color: #94a3b8;
 }
 
-.grafana-reset {
-  font-size: 11px;
-  color: #94a3b8;
-}
-
-.grafana-input-wrap {
-  padding: 4px 8px 8px;
-  display: flex;
-  gap: 6px;
-}
-
-.grafana-input {
-  flex: 1;
-  padding: 6px 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 5px;
-  font-size: 11px;
-  font-family: inherit;
-  color: #334155;
-  min-width: 0;
-}
-
-.grafana-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-}
-
-.grafana-save-btn {
-  padding: 4px 10px;
-  background: #1e40af;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.grafana-save-btn:hover {
-  background: #1e3a8a;
-}
 
 .sidebar-icon {
   width: 20px;
