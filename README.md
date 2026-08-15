@@ -1,29 +1,29 @@
 # Sovereign Trade Agent
 
-An AI-powered trade compliance assistant for the London market that uses local LLMs to verify transactions against FCA anti-money laundering (AML) rules.
+An AI-powered trade compliance assistant for the London market that uses local LLMs to verify transactions against FCA anti-money laundering (AML) rules — with full data sovereignty guaranteed by running everything on-premise.
+
+Built with [Quarkus LangChain4j](https://docs.quarkiverse.io/quarkus-langchain4j/dev/) using the `@Agent` annotation and `@ToolBox` for declarative agentic AI.
 
 ## Running the application in dev mode
 
-Quarkus Dev Services will automatically start Ollama and OpenTelemetry containers:
+Quarkus Dev Services will automatically start Ollama, PostgreSQL, and the Grafana LGTM observability stack:
 
 ```shell script
 ./mvnw quarkus:dev
 ```
 
-
 ## Web UI
 
-Access the React-based web interface at <http://localhost:8080>
+Access the enterprise-style compliance dashboard at <http://localhost:8080>
 
 ![Web UI](assets/web_ui.png)
 
-The UI provides an enterprise-style compliance dashboard with:
-- Pre-built scenario buttons with color-coded tags (REJECT/WARN/CLEAR) for quick demo cycling
-- Color-coded compliance results — red for REJECTED, amber for WARNING, green for CLEARED
-- Typing animation with blinking cursor for AI agent responses
-- Response metadata showing elapsed time and processing source
-- Sidebar navigation with Operations and Data Sources sections
-- Top navigation bar with system status indicator
+The UI provides:
+- **Scenario buttons** with color-coded tags (REJECT/WARN/CLEAR) for quick demo cycling
+- **Color-coded compliance results** — red for REJECTED, amber for WARNING, green for CLEARED
+- **Typing animation** with blinking cursor for AI agent responses
+- **Audit log** — session transaction history as cards with verdict, query, response, and duration
+- **Observability links** — direct links to Grafana Tempo (traces) and Loki (logs)
 
 > **_NOTE:_** Quarkus Dev UI is available at <http://localhost:8080/q/dev/>
 
@@ -33,9 +33,8 @@ The UI provides an enterprise-style compliance dashboard with:
 
 ### Test the AML Check Tool
 
-Send a transaction query that exceeds the £10,000 threshold:
+Use the pre-built scenario buttons in the Web UI, or send a transaction query via curl:
 
-**Using curl:**
 ```bash
 curl -X POST http://localhost:8080/trade/analyze \
   -H "Content-Type: text/plain" \
@@ -47,53 +46,6 @@ curl -X POST http://localhost:8080/trade/analyze \
 REJECTED: Manual FCA review required for amounts over £10k.
 ```
 
-**Using Dev UI:**
-1. Navigate to <http://localhost:8080/q/dev/>
-2. Find the REST endpoint `/trade/analyze`
-3. Paste the query above
-4. Submit
-
-### Verify Telemetry in Grafana
-
-After running the test above, verify that telemetry data is being collected:
-
-1. **Access Grafana Dashboard:**
-   - Open Quarkus Dev UI: <http://localhost:8080/q/dev/>
-   - Look for "Observability" section
-   - Click on the Grafana link (usually <http://localhost:3000>)
-
-2. **View Traces in Tempo:**
-   - In Grafana, go to **Explore** (compass icon)
-   - Select **Tempo** as the data source
-   - Click **Search** tab
-   - Filter by:
-     - Service Name: `sovereign-trade-agent`
-     - Span Name: `checkAMLStatus` or `getCustomerInfo`
-   - Click **Run Query**
-
-3. **What You Should See:**
-   - Trace showing the full request flow
-   - Span for `checkAMLStatus` with attributes:
-     - `transaction.amount`: 12500.0
-     - `transaction.currency`: GBP
-   - Child spans for:
-     - PostgreSQL database queries
-     - Hibernate ORM operations
-   - Total execution time for each operation
-
-4. **View Metrics in Mimir:**
-   - In Grafana, go to **Explore**
-   - Select **Mimir** as the data source
-   - Query: `http_server_requests_seconds_count{uri="/trade/analyze"}`
-   - See request counts and response times
-
-5. **View Logs in Loki:**
-   - In Grafana, go to **Explore**
-   - Select **Loki** as the data source
-   - Query: `{job="sovereign-trade-agent"}`
-   - See application logs with trace correlation
-
-
 ### Test Cases
 
 | Amount | Currency | Expected Result |
@@ -101,11 +53,27 @@ After running the test above, verify that telemetry data is being collected:
 | £12,500 | GBP | REJECTED (>£10k) |
 | £7,500 | GBP | WARNING (>£5k) |
 | £3,200 | GBP | CLEARED (≤£5k) |
-| €15,000 | EUR | CLEARED (not GBP) |
+| €9,000 | EUR | CLEARED (EUR within limits) |
+
+### Verify Telemetry in Grafana
+
+Grafana is available at <http://localhost:3001> (fixed port via Dev Services).
+
+**Traces (Tempo):**
+
+Click **Traces (Tempo)** in the Web UI sidebar, or open Grafana and select Tempo as the data source. Filter by `service.name = sovereign-trade-agent`.
+
+![Traces in Tempo](assets/tempo.png)
+
+**Logs (Loki):**
+
+Click **Logs (Loki)** in the Web UI sidebar, or open Grafana and select Loki as the data source. Query: `{service_name="sovereign-trade-agent"}`.
+
+![Logs in Loki](assets/loki.png)
 
 ## How It Works
 
-1. **AI Agent** extracts transaction details from natural language
+1. **AI Agent** (`@Agent` + `@ToolBox`) extracts transaction details from natural language
 2. **Tool Invocation** calls multiple tools:
    - `checkAMLStatus(amount, currency)` - Queries local regulatory database
    - `getCustomerInfo(customerId)` - Retrieves data from Enterprise ERP
@@ -147,31 +115,16 @@ User Query ───────────────────────
                                             ▼
                                     ┌───────────────┐
                                     │ OpenTelemetry │
-                                    │(Observability)│
+                                    │  (LGTM Stack) │
                                     └───────────────┘
 ```
 
 **Key Components:**
 
-1. **Regional LLM (KServe/Ollama)**
-   - Runs locally or on KServe for data sovereignty
-   - Processes natural language without external API calls
-   - Supports tool calling for function invocation
-
-2. **Local Regulatory Database (PostgreSQL)**
-   - FCA AML rules stored locally
-   - Multi-currency compliance thresholds
-   - Managed by Quarkus Dev Services
-
-3. **Enterprise ERP Integration (REST Client)**
-   - Customer account information
-   - Risk assessment data
-   - Credit limits and transaction history
-
-4. **OpenTelemetry**
-   - End-to-end observability
-   - Tool invocation tracking
-   - Performance monitoring
+1. **Regional LLM (KServe/Ollama)** — runs locally for data sovereignty, processes natural language without external API calls
+2. **Local Regulatory Database (PostgreSQL)** — FCA AML rules with multi-currency compliance thresholds, managed by Quarkus Dev Services
+3. **Enterprise ERP Integration (REST Client)** — customer account information, risk assessment data, credit limits
+4. **OpenTelemetry (LGTM Stack)** — end-to-end observability with Grafana, Tempo (traces), Loki (logs), and Mimir (metrics)
 
 ## Configuration
 
@@ -183,10 +136,17 @@ quarkus.langchain4j.ollama.chat-model.model-id=llama3.2
 
 # Ollama endpoint
 quarkus.langchain4j.ollama.base-url=http://localhost:11434
+
+# Grafana fixed port
+quarkus.observability.lgtm.grafana-port=3001
+
+# Enable log export to Loki
+quarkus.otel.logs.enabled=true
 ```
 
 ## Learn More
 
 - [Quarkus](https://quarkus.io/)
 - [Quarkus LangChain4j](https://docs.quarkiverse.io/quarkus-langchain4j/dev/)
+- [Quarkus LangChain4j Agentic](https://docs.quarkiverse.io/quarkus-langchain4j/dev/agentic.html)
 - [Ollama](https://ollama.ai/)
