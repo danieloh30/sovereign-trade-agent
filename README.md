@@ -17,11 +17,13 @@ Access the React-based web interface at <http://localhost:8080>
 
 ![Web UI](assets/web_ui.png)
 
-The UI provides:
-- Interactive transaction query form
-- Real-time compliance assessment
-- Example transaction loader
-- Visual feedback for AI agent responses
+The UI provides an enterprise-style compliance dashboard with:
+- Pre-built scenario buttons with color-coded tags (REJECT/WARN/CLEAR) for quick demo cycling
+- Color-coded compliance results — red for REJECTED, amber for WARNING, green for CLEARED
+- Typing animation with blinking cursor for AI agent responses
+- Response metadata showing elapsed time and processing source
+- Sidebar navigation with Operations and Data Sources sections
+- Top navigation bar with system status indicator
 
 > **_NOTE:_** Quarkus Dev UI is available at <http://localhost:8080/q/dev/>
 
@@ -97,7 +99,8 @@ After running the test above, verify that telemetry data is being collected:
 | Amount | Currency | Expected Result |
 |--------|----------|----------------|
 | £12,500 | GBP | REJECTED (>£10k) |
-| £8,000 | GBP | CLEARED (≤£10k) |
+| £7,500 | GBP | WARNING (>£5k) |
+| £3,200 | GBP | CLEARED (≤£5k) |
 | €15,000 | EUR | CLEARED (not GBP) |
 
 ## How It Works
@@ -180,9 +183,6 @@ quarkus.langchain4j.ollama.chat-model.model-id=llama3.2
 
 # Ollama endpoint
 quarkus.langchain4j.ollama.base-url=http://localhost:11434
-
-# OpenTelemetry (optional)
-quarkus.otel.exporter.otlp.endpoint=http://localhost:4317
 ```
 
 ## Learn More
