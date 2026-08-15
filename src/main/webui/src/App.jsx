@@ -120,15 +120,38 @@ function App() {
   const [elapsed, setElapsed] = useState(null)
   const [activeView, setActiveView] = useState('check')
   const [auditLog, setAuditLog] = useState([])
-  const [grafanaUrl, setGrafanaUrl] = useState('')
+  const [grafanaUrl, setGrafanaUrl] = useState(() => localStorage.getItem('grafanaUrl') || '')
+  const [showGrafanaInput, setShowGrafanaInput] = useState(false)
+  const [grafanaInput, setGrafanaInput] = useState('')
   const { displayed, done } = useTypingEffect(response)
 
   useEffect(() => {
+    if (grafanaUrl) return
     fetch('/trade/config/grafana-url')
       .then(res => res.text())
-      .then(url => { if (url) setGrafanaUrl(url) })
+      .then(url => {
+        if (url) {
+          setGrafanaUrl(url)
+          localStorage.setItem('grafanaUrl', url)
+        }
+      })
       .catch(() => {})
   }, [])
+
+  const saveGrafanaUrl = () => {
+    const base = grafanaInput.replace(/\/+$/, '').split('/explore')[0].split('/d/')[0]
+    if (base.startsWith('http')) {
+      setGrafanaUrl(base)
+      localStorage.setItem('grafanaUrl', base)
+      setShowGrafanaInput(false)
+      setGrafanaInput('')
+    }
+  }
+
+  const clearGrafanaUrl = () => {
+    setGrafanaUrl('')
+    localStorage.removeItem('grafanaUrl')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -234,20 +257,45 @@ function App() {
           </div>
           <div className="sidebar-section">
             <div className="sidebar-section-title">Observability</div>
-            <a className="sidebar-item" href={grafanaHref || '#'} target={grafanaHref ? '_blank' : undefined} rel="noopener"
-               onClick={grafanaHref ? undefined : (e) => e.preventDefault()}>
-              <span className="sidebar-icon">{'◎'}</span>
-              <span>Traces (Tempo)</span>
-              {grafanaHref && <span className="sidebar-external">{'↗'}</span>}
-              {!grafanaHref && <span className="sidebar-status unavailable">{'●'}</span>}
-            </a>
-            <a className="sidebar-item" href={grafanaUrl ? grafanaUrl + GRAFANA_LOKI_PATH : '#'} target={grafanaUrl ? '_blank' : undefined} rel="noopener"
-               onClick={grafanaUrl ? undefined : (e) => e.preventDefault()}>
-              <span className="sidebar-icon">{'▤'}</span>
-              <span>Logs (Loki)</span>
-              {grafanaUrl && <span className="sidebar-external">{'↗'}</span>}
-              {!grafanaUrl && <span className="sidebar-status unavailable">{'●'}</span>}
-            </a>
+            {grafanaUrl ? (
+              <>
+                <a className="sidebar-item" href={grafanaHref} target="_blank" rel="noopener">
+                  <span className="sidebar-icon">{'◎'}</span>
+                  <span>Traces (Tempo)</span>
+                  <span className="sidebar-external">{'↗'}</span>
+                </a>
+                <a className="sidebar-item" href={grafanaUrl + GRAFANA_LOKI_PATH} target="_blank" rel="noopener">
+                  <span className="sidebar-icon">{'▤'}</span>
+                  <span>Logs (Loki)</span>
+                  <span className="sidebar-external">{'↗'}</span>
+                </a>
+                <div className="sidebar-item clickable grafana-reset" onClick={clearGrafanaUrl}>
+                  <span className="sidebar-icon">{'✕'}</span>
+                  <span>Reset Grafana URL</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="sidebar-item clickable" onClick={() => setShowGrafanaInput(true)}>
+                  <span className="sidebar-icon">{'+'}</span>
+                  <span>Connect Grafana</span>
+                </div>
+                {showGrafanaInput && (
+                  <div className="grafana-input-wrap">
+                    <input
+                      type="text"
+                      className="grafana-input"
+                      placeholder="http://localhost:33443"
+                      value={grafanaInput}
+                      onChange={(e) => setGrafanaInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && saveGrafanaUrl()}
+                      autoFocus
+                    />
+                    <button className="grafana-save-btn" onClick={saveGrafanaUrl}>Save</button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div className="sidebar-spacer"></div>
           <div className="sidebar-footer">
