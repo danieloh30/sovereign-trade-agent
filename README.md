@@ -112,9 +112,9 @@ Blank inputs or inputs over 2,000 characters return HTTP 400. Dependency or agen
 ```mermaid
 flowchart LR
     UI[React dashboard / API client] --> API[Quarkus REST API]
-    API --> Agent[LangChain4j @Agent]
+    API --> Agent["LangChain4j @Agent"]
     Agent <--> Ollama[Local Ollama model]
-    Agent -->|@ToolBox| Tool[checkAMLStatus]
+    Agent -->|"@ToolBox"| Tool[checkAMLStatus]
     Tool --> DB[(PostgreSQL demo policies)]
     Tool -->|Immediate return| API
     API -->|Structured verdict| UI
