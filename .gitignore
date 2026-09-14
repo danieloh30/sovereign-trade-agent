@@ -43,3 +43,12 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+# Frontend dependencies and generated output
+node_modules/
+src/main/webui/dist/
+src/main/webui/test-results/
+src/main/webui/playwright-report/
+
+# Quinoa-managed Node/npm installation
+.quinoa/

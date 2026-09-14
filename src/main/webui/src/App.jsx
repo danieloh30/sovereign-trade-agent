@@ -1,361 +1,173 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 const SCENARIOS = [
-  {
-    label: 'High-value GBP',
-    tag: 'reject',
-    query: "I have a customer, 'London Tech Ltd', trying to move £12,500 to a new vendor in Estonia for 'Cloud Services'. Before I approve this, check our local AML rules.",
-  },
-  {
-    label: 'Standard GBP',
-    tag: 'clear',
-    query: "Please verify a £3,200 GBP payment from 'Baker Street Consulting' to a domestic supplier for office furniture.",
-  },
-  {
-    label: 'Mid-range GBP',
-    tag: 'warning',
-    query: "A customer wants to send £7,500 GBP to a consulting firm in Dublin. Check if this triggers any AML rules.",
-  },
-  {
-    label: 'EUR Transfer',
-    tag: 'clear',
-    query: "Check AML compliance for a €9,000 EUR wire transfer from our Paris branch to a Frankfurt-based logistics company.",
-  },
+  { label: 'High-value GBP', amount: '£12,500', expected: 'REJECTED', query: "I have a customer, 'London Tech Ltd', trying to move £12,500 to a new vendor in Estonia for 'Cloud Services'. Before I approve this, check our local AML rules." },
+  { label: 'Standard GBP', amount: '£3,200', expected: 'CLEARED', query: "Please verify a £3,200 GBP payment from 'Baker Street Consulting' to a domestic supplier for office furniture." },
+  { label: 'Mid-range GBP', amount: '£7,500', expected: 'WARNING', query: 'A customer wants to send £7,500 GBP to a consulting firm in Dublin. Check if this triggers any AML rules.' },
+  { label: 'EUR transfer', amount: '€9,000', expected: 'CLEARED', query: 'Check AML compliance for a €9,000 EUR wire transfer from our Paris branch to a Frankfurt-based logistics company.' },
 ]
 
-const GRAFANA_TEMPO_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceqlSearch%22%2C%22limit%22%3A20%2C%22tableType%22%3A%22traces%22%2C%22filters%22%3A%5B%7B%22id%22%3A%22service-name%22%2C%22tag%22%3A%22service.name%22%2C%22operator%22%3A%22%3D%22%2C%22scope%22%3A%22resource%22%2C%22value%22%3A%5B%22sovereign-trade-agent%22%5D%2C%22valueType%22%3A%22string%22%7D%5D%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
-const GRAFANA_LOKI_PATH = '/explore?schemaVersion=1&panes=%7B%22lwj%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22sovereign-trade-agent%5C%22%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1'
-
-function getVerdict(text) {
-  const upper = text.toUpperCase()
-  if (upper.startsWith('ERROR') || upper.includes('ERROR:'))
-    return { type: 'error', label: 'Error', icon: '✖' }
-  if (upper.includes('REJECTED'))
-    return { type: 'rejected', label: 'Rejected', icon: '✖' }
-  if (upper.includes('WARNING'))
-    return { type: 'warning', label: 'Warning', icon: '⚠' }
-  if (upper.includes('CLEARED'))
-    return { type: 'cleared', label: 'Cleared', icon: '✔' }
-  return { type: 'unknown', label: 'Response', icon: 'ℹ' }
+const VERDICTS = {
+  REJECTED: { label: 'Rejected', icon: '×', className: 'rejected' },
+  WARNING: { label: 'Warning', icon: '!', className: 'warning' },
+  CLEARED: { label: 'Cleared', icon: '✓', className: 'cleared' },
+  REVIEW_REQUIRED: { label: 'Review required', icon: '?', className: 'review' },
+  ERROR: { label: 'Analysis unavailable', icon: '!', className: 'error' },
 }
 
-function useTypingEffect(text, speed = 18) {
-  const [displayed, setDisplayed] = useState('')
-  const [done, setDone] = useState(false)
-  const idx = useRef(0)
-
-  useEffect(() => {
-    if (!text) {
-      setDisplayed('')
-      setDone(false)
-      idx.current = 0
-      return
-    }
-    setDisplayed('')
-    setDone(false)
-    idx.current = 0
-
-    const interval = setInterval(() => {
-      idx.current++
-      setDisplayed(text.slice(0, idx.current))
-      if (idx.current >= text.length) {
-        setDone(true)
-        clearInterval(interval)
-      }
-    }, speed)
-
-    return () => clearInterval(interval)
-  }, [text, speed])
-
-  return { displayed, done }
+const grafanaUrl = (import.meta.env.VITE_GRAFANA_URL || `${window.location.protocol}//${window.location.hostname}:3001`).replace(/\/$/, '')
+function grafanaLink(kind, traceId) {
+  const datasource = { type: kind, uid: kind }
+  const query = kind === 'loki'
+    ? { expr: '{service_name="sovereign-trade-agent"}' }
+    : { queryType: 'traceql', query: traceId || '{resource.service.name = "sovereign-trade-agent"}' }
+  const panes = { demo: { datasource: kind, queries: [{ refId: 'A', datasource, ...query }], range: { from: 'now-1h', to: 'now' } } }
+  return `${grafanaUrl}/explore?schemaVersion=1&panes=${encodeURIComponent(JSON.stringify(panes))}&orgId=1`
 }
 
-function AuditLogView({ auditLog }) {
-  if (auditLog.length === 0) {
-    return (
-      <div className="empty-state">
-        <div className="empty-icon">☰</div>
-        <p>No transactions analyzed yet.</p>
-        <p className="empty-hint">Switch to Transaction Check and run an analysis to see entries here.</p>
-      </div>
-    )
-  }
+function amountLabel(decision) {
+  if (decision.amount == null) return 'Not extracted'
+  return `${new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(decision.amount)} ${decision.currency || ''}`.trim()
+}
 
+function DecisionCard({ result, query, compact = false }) {
+  const { decision } = result
+  const verdict = VERDICTS[decision.verdict] || VERDICTS.REVIEW_REQUIRED
   return (
-    <div className="audit-cards">
-      {auditLog.slice().reverse().map((entry, i) => {
-        const verdict = getVerdict(entry.response)
-        return (
-          <div key={i} className={`audit-card audit-card-${verdict.type}`}>
-            <div className="audit-card-header">
-              <span className={`verdict-badge ${verdict.type}`}>
-                {verdict.icon} {verdict.label}
-              </span>
-              <div className="audit-card-meta">
-                <span>{'⏱'} {entry.elapsed}s</span>
-                <span>{entry.time}</span>
-              </div>
-            </div>
-            <div className="audit-card-query">
-              <div className="audit-card-label">Query</div>
-              <p>{entry.query}</p>
-            </div>
-            <div className="audit-card-response">
-              <div className="audit-card-label">Response</div>
-              <p>{entry.response}</p>
-            </div>
-          </div>
-        )
-      })}
-    </div>
+    <article className={`decision-card ${verdict.className}`} aria-label="Analysis result">
+      <div className="decision-heading">
+        <div className="decision-title"><span className="verdict-icon" aria-hidden="true">{verdict.icon}</span><h2>{verdict.label}</h2></div>
+        <span className="duration">{(result.durationMs / 1000).toFixed(2)}s</span>
+      </div>
+      {compact && <p className="audit-query">{query}</p>}
+      <p className="decision-message">{decision.message}</p>
+      <dl className="decision-facts">
+        <div><dt>Extracted transaction</dt><dd>{amountLabel(decision)}</dd></div>
+        <div><dt>Matched policy</dt><dd>{decision.ruleId != null ? `Rule ${decision.ruleId} · ≥ ${new Intl.NumberFormat('en-GB').format(decision.threshold)} ${decision.currency}` : 'No verified match'}</dd></div>
+      </dl>
+      <div className="decision-footer">
+        <span>{result.model ? `Model: ${result.model}` : 'Request did not complete'}</span>
+        {result.traceId && <a href={grafanaLink('tempo', result.traceId)} target="_blank" rel="noopener noreferrer">View this trace <span aria-hidden="true">↗</span></a>}
+      </div>
+    </article>
   )
 }
 
-function App() {
+export default function App() {
   const [query, setQuery] = useState('')
-  const [response, setResponse] = useState('')
+  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeScenario, setActiveScenario] = useState(null)
-  const [elapsed, setElapsed] = useState(null)
   const [activeView, setActiveView] = useState('check')
-  const [auditLog, setAuditLog] = useState([])
-  const [grafanaUrl] = useState('http://localhost:3001')
-  const { displayed, done } = useTypingEffect(response)
+  const [history, setHistory] = useState([])
+  const [waiting, setWaiting] = useState(0)
+  const controller = useRef(null)
+  const started = useRef(0)
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  useEffect(() => () => controller.current?.abort(), [])
+  useEffect(() => {
+    if (!loading) return
+    const timer = setInterval(() => setWaiting((Date.now() - started.current) / 1000), 100)
+    return () => clearInterval(timer)
+  }, [loading])
+
+  function loadScenario(index) {
+    if (controller.current) return
+    setActiveScenario(index)
+    setQuery(SCENARIOS[index].query)
+    setResult(null)
+  }
+
+  function clear() {
+    if (controller.current) return
+    setQuery('')
+    setResult(null)
+    setActiveScenario(null)
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    if (controller.current || !query.trim()) return
+    const submittedQuery = query.trim()
+    const request = new AbortController()
+    controller.current = request
+    started.current = Date.now()
+    setWaiting(0)
     setLoading(true)
-    setResponse('')
-    setElapsed(null)
-    const start = Date.now()
-
+    setResult(null)
+    const timeout = setTimeout(() => request.abort(), 35000)
+    let next
     try {
-      const res = await fetch('/trade/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: query,
+      const response = await fetch('/trade/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'text/plain', Accept: 'application/json' },
+        body: submittedQuery, signal: request.signal,
       })
-
-      const data = await res.text()
-      const secs = ((Date.now() - start) / 1000).toFixed(1)
-      setElapsed(secs)
-      if (!res.ok) {
-        setResponse('Error: ' + data)
-        setAuditLog(prev => [...prev, {
-          time: new Date().toLocaleTimeString(),
-          query,
-          response: 'Error: ' + data,
-          elapsed: secs,
-        }])
-      } else {
-        setResponse(data)
-        setAuditLog(prev => [...prev, {
-          time: new Date().toLocaleTimeString(),
-          query,
-          response: data,
-          elapsed: secs,
-        }])
-      }
+      const data = await response.json()
+      if (!data.decision || !VERDICTS[data.decision.verdict] || !Number.isFinite(data.durationMs)
+          || (!response.ok && data.decision.verdict !== 'ERROR')) throw new Error('Invalid response')
+      next = data
     } catch (error) {
-      const secs = ((Date.now() - start) / 1000).toFixed(1)
-      setElapsed(secs)
-      setResponse('Error: ' + error.message)
-      setAuditLog(prev => [...prev, {
-        time: new Date().toLocaleTimeString(),
-        query,
-        response: 'Error: ' + error.message,
-        elapsed: secs,
-      }])
+      next = {
+        decision: { verdict: 'ERROR', message: error.name === 'AbortError'
+          ? 'The request timed out. Check that the local model is ready, then retry.'
+          : 'Could not complete the analysis. Check the local app and Ollama, then retry.' },
+        durationMs: Date.now() - started.current,
+      }
     } finally {
+      clearTimeout(timeout)
+      controller.current = null
       setLoading(false)
     }
+    setResult(next)
+    setHistory(previous => [...previous, { id: crypto.randomUUID(), query: submittedQuery, result: next, time: new Date().toLocaleTimeString('en-GB') }])
   }
-
-  const loadScenario = (idx) => {
-    setActiveScenario(idx)
-    setQuery(SCENARIOS[idx].query)
-    setResponse('')
-    setElapsed(null)
-  }
-
-  const handleClear = () => {
-    setQuery('')
-    setResponse('')
-    setActiveScenario(null)
-    setElapsed(null)
-  }
-
-  const verdict = response ? getVerdict(response) : null
-  const grafanaHref = grafanaUrl ? grafanaUrl + GRAFANA_TEMPO_PATH : ''
 
   return (
     <>
-      <div className="topbar">
-        <div className="topbar-left">
-          <div className="topbar-logo">S</div>
-          <span className="topbar-title">Sovereign Trade Agent</span>
-        </div>
-        <div className="topbar-right">
-          <span className="topbar-badge">FCA Compliance</span>
-          <div className="topbar-env">
-            <span className="env-dot"></span>
-            <span>System Online</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="main-layout">
-        <div className="sidebar">
-          <div className="sidebar-section">
-            <div className="sidebar-section-title">Operations</div>
-            <div
-              className={`sidebar-item clickable${activeView === 'check' ? ' active' : ''}`}
-              onClick={() => setActiveView('check')}
-            >
-              <span className="sidebar-icon">{'▶'}</span>
-              <span>Transaction Check</span>
+      <header className="topbar">
+        <div className="brand"><span className="brand-mark">S</span><span>Sovereign Trade Agent</span></div>
+        <div className="event"><span>apidays London 2026</span><span className="local-label">Local demo</span></div>
+      </header>
+      <div className="app-layout">
+        <aside className="sidebar">
+          <p className="nav-label">Workspace</p>
+          <nav aria-label="Demo navigation">
+            <button className={`nav-item ${activeView === 'check' ? 'active' : ''}`} onClick={() => setActiveView('check')} aria-current={activeView === 'check' ? 'page' : undefined}><span aria-hidden="true">▣</span>Transaction check</button>
+            <button className={`nav-item ${activeView === 'audit' ? 'active' : ''}`} onClick={() => setActiveView('audit')} aria-current={activeView === 'audit' ? 'page' : undefined}><span aria-hidden="true">≡</span>Session history<span className="count">{history.length}</span></button>
+          </nav>
+          <p className="nav-label observability-label">Observability</p>
+          <a className="nav-item" href={grafanaLink('tempo')} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">◎</span>Traces · Tempo<span className="external">↗</span></a>
+          <a className="nav-item" href={grafanaLink('loki')} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▤</span>Logs · Loki<span className="external">↗</span></a>
+          <div className="sidebar-note"><span className="eyebrow">The demo path</span><p>Local inference.<br />Local policies.<br />A trace for every check.</p></div>
+          <a className="dev-link" href="/q/dev/" target="_blank" rel="noopener noreferrer">Quarkus Dev UI ↗</a>
+        </aside>
+        <main>
+          {activeView === 'check' ? <>
+            <div className="page-header"><p className="eyebrow">Sovereign AI in action</p><h1>Transaction compliance</h1><p>Describe a payment, check a local policy, and follow the decision.</p></div>
+            <div className="scenarios" aria-label="Demo scenarios">
+              {SCENARIOS.map((scenario, index) => <button key={scenario.label} className={`scenario ${activeScenario === index ? 'selected' : ''}`} disabled={loading} onClick={() => loadScenario(index)} aria-pressed={activeScenario === index}>
+                <span className="scenario-top"><span className="scenario-amount">{scenario.amount}</span><span className={`expected ${scenario.expected.toLowerCase()}`}>{VERDICTS[scenario.expected].label}</span></span>
+                <span className="scenario-label">{scenario.label}</span>
+              </button>)}
             </div>
-            <div
-              className={`sidebar-item clickable${activeView === 'audit' ? ' active' : ''}`}
-              onClick={() => setActiveView('audit')}
-            >
-              <span className="sidebar-icon">{'☰'}</span>
-              <span>Audit Log</span>
-              {auditLog.length > 0 && <span className="sidebar-count">{auditLog.length}</span>}
+            <form onSubmit={handleSubmit} className="query-card">
+              <div className="query-heading"><label htmlFor="query">Transaction query</label><span>One transaction per check</span></div>
+              <textarea id="query" value={query} disabled={loading} maxLength={2000} rows={4} required placeholder="Describe an amount, currency, and payment context…" onChange={event => { setQuery(event.target.value); setActiveScenario(null); setResult(null) }} />
+              <div className="form-actions"><span className="input-hint">Try a scenario above or describe your own payment.</span><button type="button" className="button secondary" onClick={clear} disabled={loading || !query}>Clear</button><button type="submit" className="button primary" disabled={loading || !query.trim()}>{loading ? 'Checking…' : result?.decision.verdict === 'ERROR' ? 'Retry analysis' : 'Run analysis'}<span aria-hidden="true">{loading ? '' : ' →'}</span></button></div>
+            </form>
+            <div aria-live="polite" aria-atomic="true" aria-busy={loading}>
+              {loading && <div className="loading-card" role="status"><span className="spinner" aria-hidden="true" /><div><strong>Checking with the local agent</strong><p>{waiting >= 8 ? 'The model may be loading. The first check can take longer.' : 'Extracting the transaction and checking the policy database.'}</p></div><span className="duration">{waiting.toFixed(1)}s</span></div>}
+              {result && <DecisionCard result={result} />}
             </div>
-          </div>
-          <div className="sidebar-section">
-            <div className="sidebar-section-title">Observability</div>
-            <a className="sidebar-item" href={grafanaHref} target="_blank" rel="noopener">
-              <span className="sidebar-icon">{'◎'}</span>
-              <span>Traces (Tempo)</span>
-              <span className="sidebar-external">{'↗'}</span>
-            </a>
-            <a className="sidebar-item" href={grafanaUrl + GRAFANA_LOKI_PATH} target="_blank" rel="noopener">
-              <span className="sidebar-icon">{'▤'}</span>
-              <span>Logs (Loki)</span>
-              <span className="sidebar-external">{'↗'}</span>
-            </a>
-          </div>
-          <div className="sidebar-spacer"></div>
-          <div className="sidebar-footer">
-            <a className="sidebar-footer-item" href="/q/dev-ui/" target="_blank" rel="noopener">
-              <span className="sidebar-icon">{'⚙'}</span>
-              <span>Dev Console</span>
-            </a>
-          </div>
-        </div>
-
-        <div className="content">
-          {activeView === 'check' && (
-            <>
-              <div className="page-header">
-                <h1>Transaction Compliance Check</h1>
-                <p>Verify transactions against FCA anti-money laundering rules using a sovereign AI agent</p>
-              </div>
-
-              <div className="scenarios">
-                {SCENARIOS.map((s, i) => (
-                  <button
-                    key={i}
-                    className={`scenario-btn${activeScenario === i ? ' active' : ''}`}
-                    onClick={() => loadScenario(i)}
-                  >
-                    <span className={`scenario-tag ${s.tag}`}>
-                      {s.tag === 'reject' ? 'REJECT' : s.tag === 'warning' ? 'WARN' : 'CLEAR'}
-                    </span>
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-
-              <form onSubmit={handleSubmit}>
-                <div className="form-card">
-                  <label className="form-label" htmlFor="query">Transaction Query</label>
-                  <textarea
-                    id="query"
-                    value={query}
-                    onChange={(e) => { setQuery(e.target.value); setActiveScenario(null); }}
-                    placeholder="Describe the transaction you want to verify..."
-                    rows="4"
-                    required
-                  />
-                  <div className="form-actions">
-                    <button type="button" onClick={handleClear} className="btn-clear">Clear</button>
-                    <button type="submit" disabled={loading} className="btn-submit">
-                      {loading && <span className="spinner"></span>}
-                      {loading ? 'Analyzing...' : 'Run Analysis'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-
-              {(response || loading) && (
-                <div className="response-card">
-                  <div className="response-header">
-                    {verdict ? (
-                      <>
-                        <div className={`response-verdict-icon ${verdict.type}`}>{verdict.icon}</div>
-                        <span className={`response-verdict-text ${verdict.type}`}>{verdict.label}</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="response-verdict-icon unknown">
-                          <span className="spinner" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6', width: 16, height: 16 }}></span>
-                        </div>
-                        <span className="response-verdict-text unknown">Processing...</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="response-body">
-                    <span className="response-text">{displayed}</span>
-                    {!done && response && <span className="response-cursor"></span>}
-                  </div>
-                  {elapsed && done && (
-                    <div className="response-meta">
-                      <span className="meta-item">{'⏱'} {elapsed}s</span>
-                      <span className="meta-item">{'☷'} Local LLM</span>
-                      <span className="meta-item">{'☑'} Sovereign Processing</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="info-bar">
-                <div className="info-chip">
-                  <span className="info-chip-dot blue"></span>
-                  Regional LLM (Ollama)
-                </div>
-                <div className="info-chip">
-                  <span className="info-chip-dot green"></span>
-                  Regulatory DB (PostgreSQL)
-                </div>
-                <div className="info-chip">
-                  <span className="info-chip-dot amber"></span>
-                  Enterprise ERP
-                </div>
-                <div className="info-chip">
-                  <span className="info-chip-dot purple"></span>
-                  OpenTelemetry
-                </div>
-              </div>
-            </>
-          )}
-
-          {activeView === 'audit' && (
-            <>
-              <div className="page-header">
-                <h1>Audit Log</h1>
-                <p>Session transaction history with compliance verdicts</p>
-              </div>
-              <AuditLogView auditLog={auditLog} />
-            </>
-          )}
-        </div>
+            <div className="flow" aria-label="How the demo works"><span><b>01</b>Local LLM extracts</span><span aria-hidden="true">→</span><span><b>02</b>Policy tool decides</span><span aria-hidden="true">→</span><span><b>03</b>OpenTelemetry records</span></div>
+            <p className="policy-note">Illustrative AML policies for this demo. A cleared result means no configured threshold was triggered.</p>
+          </> : <>
+            <div className="page-header"><p className="eyebrow">This browser session</p><h1>Session history</h1><p>Queries, verified verdicts, and their traces. Refreshing the page clears this history.</p></div>
+            {history.length === 0 ? <div className="empty-state"><span aria-hidden="true">≡</span><h2>No checks yet</h2><p>Run a transaction check to start your session history.</p><button className="button secondary" onClick={() => setActiveView('check')}>Go to transaction check</button></div> : <div className="history-list">{history.slice().reverse().map(entry => <section key={entry.id}><p className="history-time">{entry.time}</p><DecisionCard result={entry.result} query={entry.query} compact /></section>)}</div>}
+          </>}
+        </main>
       </div>
     </>
   )
 }
-
-export default App
