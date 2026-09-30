@@ -9,15 +9,25 @@ test('capture the live demo and session history', async ({ page }) => {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const cases = [
-    ['High-value GBP', 'Rejected'], ['Standard GBP', 'Cleared'],
+    ['High-value GBP', 'Manual review required'], ['Standard GBP', 'Cleared'],
     ['Mid-range GBP', 'Warning'], ['EUR transfer', 'Cleared'],
+    ['Below GBP boundary', 'Warning'], ['At GBP boundary', 'Manual review required'],
+    ['JPY transfer', 'Review required'],
   ]
   for (const [scenario, verdict] of cases) {
+    if (scenario === 'Below GBP boundary') await page.getByText('Boundary and currency examples', { exact: true }).click()
     await page.getByRole('button', { name: new RegExp(scenario) }).click()
     await page.getByRole('button', { name: /Run analysis/ }).click()
     await expect(page.getByRole('heading', { name: verdict, exact: true })).toBeVisible({ timeout: 40000 })
     if (scenario === 'High-value GBP') {
       await page.screenshot({ path: resolve('../../../assets/web_ui.png'), fullPage: true })
+      await page.getByRole('button', { name: 'View matched policy' }).click()
+      await expect(page.getByRole('row').filter({ hasText: 'Latest match' })).toBeVisible()
+      await page.screenshot({ path: resolve('../../../assets/policies.png'), fullPage: true })
+      await page.getByRole('button', { name: 'API exchange' }).click()
+      await expect(page.getByRole('region', { name: 'Analysis response' })).toContainText('"verdict": "REJECTED"')
+      await page.screenshot({ path: resolve('../../../assets/api_exchange.png'), fullPage: true })
+      await page.getByRole('button', { name: 'Transaction check' }).click()
     }
   }
   // Verify that the real trace link resolves to the policy tool span in Grafana.
@@ -36,7 +46,7 @@ test('capture the live demo and session history', async ({ page }) => {
   await tracePage.screenshot({ path: resolve('../../../assets/tempo.png'), fullPage: true })
   await tracePage.close()
   await page.getByRole('button', { name: /Session history/ }).click()
-  await expect(page.getByRole('article', { name: 'Analysis result' })).toHaveCount(4)
+  await expect(page.getByRole('article', { name: 'Analysis result' })).toHaveCount(7)
   await page.screenshot({ path: resolve('../../../assets/session_history.png'), fullPage: true })
   await page.getByRole('button', { name: /Transaction check/ }).click()
   await page.setViewportSize({ width: 390, height: 844 })

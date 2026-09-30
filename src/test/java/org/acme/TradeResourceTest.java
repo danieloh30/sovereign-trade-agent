@@ -10,7 +10,8 @@ import static org.hamcrest.Matchers.*;
 @QuarkusTest
 class TradeResourceTest {
     @ParameterizedTest
-    @CsvSource({"12500,GBP,REJECTED,1", "7500,GBP,WARNING,2", "3200,GBP,CLEARED,3", "9000,EUR,CLEARED,5"})
+    @CsvSource({"12500,GBP,REJECTED,1", "7500,GBP,WARNING,2", "3200,GBP,CLEARED,3", "9000,EUR,CLEARED,5",
+            "9999,GBP,WARNING,2", "10000,GBP,REJECTED,1"})
     void returnsVerifiedToolDecisions(int amount, String currency, String verdict, int ruleId) {
         given().contentType("text/plain")
                 .body("Check AML status for a " + amount + " " + currency + " transaction.")
@@ -22,6 +23,15 @@ class TradeResourceTest {
                 .body("decision.amount", equalTo((float) amount))
                 .body("model", not(emptyOrNullString()))
                 .body("durationMs", greaterThanOrEqualTo(0));
+    }
+
+    @Test
+    void unsupportedCurrencyRequiresReviewWithoutAMatchedRule() {
+        given().contentType("text/plain").body("Check a 12000 JPY payment to a supplier in Tokyo.")
+                .when().post("/trade/analyze").then().statusCode(200)
+                .body("decision.verdict", equalTo("REVIEW_REQUIRED"))
+                .body("decision.currency", equalTo("JPY"))
+                .body("decision.ruleId", nullValue());
     }
 
     @Test

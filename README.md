@@ -4,7 +4,7 @@ A local AI and API demo for **apidays London 2026**. Describe a payment in natur
 
 Built with **Quarkus LangChain4j**, `@Agent`, `@ToolBox`, Ollama, PostgreSQL, React, and Grafana LGTM.
 
-The AML thresholds are **illustrative demo policies**, not FCA regulatory rules or a complete compliance assessment. The [FCA describes a risk-based approach to AML](https://www.fca.org.uk/firms/financial-crime/money-laundering-terrorist-financing). Here, “Cleared” means no configured review threshold was triggered; “Rejected” represents the demo policy's manual-review outcome. No payment is executed.
+The AML thresholds are **illustrative demo policies**, not FCA regulatory rules or a complete compliance assessment. The [FCA describes a risk-based approach to AML](https://www.fca.org.uk/firms/financial-crime/money-laundering-terrorist-financing). Here, “Cleared” means no configured review threshold was triggered. The UI displays the legacy API verdict `REJECTED` as **Manual review required**; the demo never executes or rejects a payment.
 
 ## Quick start
 
@@ -33,29 +33,45 @@ Dev Services starts PostgreSQL and Grafana LGTM, and reuses the local Ollama ins
 - **Grafana:** <http://localhost:3001>
 - **Quarkus Dev UI:** <http://localhost:8080/q/dev/>
 - **Swagger UI:** <http://localhost:8080/q/swagger-ui/>
+- **OpenAPI specification:** <http://localhost:8080/q/openapi>
 
 ## The dashboard
 
 ![Live transaction check with extracted amount, matched rule, and trace link](assets/web_ui.png)
 
 - Four preset scenarios for quick demo cycling, with verdicts revealed after analysis.
+- Expand **Boundary and currency examples** for £9,999, £10,000, and a 12,000 JPY payment.
 - Structured verdicts from the policy tool, displayed immediately without a typing delay.
 - Extracted amount, currency, matched rule, model name, and server duration.
 - **View this trace** opens the specific request in Grafana Tempo.
 - Inputs lock during a request; a 35-second browser timeout restores the retry button.
 - Keyboard-accessible navigation and a responsive layout.
 
-![Session history from four real local model checks](assets/session_history.png)
+**Demo policies** reads the current rules from PostgreSQL through `GET /trade/policies`. Thresholds are inclusive, and the highest matching threshold wins. **View matched policy** opens this view from a result and highlights the latest matched rule if its ID, currency, threshold, and verdict still agree with the current database row. Rules are read-only in the demo.
+
+[View the policy viewer screenshot](assets/policies.png).
+
+**API exchange** shows the exact submitted request, HTTP status, and actual response body for the latest completed analysis. Editing the next query preserves that request/response pair. HTTP errors retain their status and body; a request with no HTTP response is identified separately. The view includes Swagger and OpenAPI links and a curl command with literal shell quoting for the request body.
+
+[View the API exchange screenshot](assets/api_exchange.png).
+
+The two review labels distinguish a matched policy requiring manual review (`REJECTED`) from an unverified transaction or missing policy coverage (`REVIEW_REQUIRED`). These API verdict codes remain unchanged for existing clients.
+
+![Session history from seven real local model checks](assets/session_history.png)
 
 Session history lives in browser memory and clears on refresh. It is a demo convenience, not a durable audit store. A [mobile screenshot](assets/mobile_ui.png) shows the narrow layout.
 
 ## A short presentation sequence
 
-1. **Before presenting:** start the app, wait for Grafana, then run `python3 scripts/check-demo.py --rounds 1`. This checks all four scenarios and warms the model.
-2. **High-value GBP:** select £12,500 and run the analysis. Point out the extracted amount and policy rule 1.
-3. **Follow the API:** click **View this trace**. Show the local model call and `checkAMLStatus` span with the amount and currency attributes.
-4. **Compare outcomes:** run Standard GBP, Mid-range GBP, and EUR transfer. The model extracts the details; database rules supply the verdict.
-5. **Show the trail:** open Session history, then Logs · Loki.
+1. **Before presenting:** start the app, wait for Grafana, then run `python3 scripts/check-demo.py --rounds 1`. This checks all seven scenarios and warms the model.
+2. **Run one payment:** select High-value GBP (£12,500). Show the extracted amount, **Manual review required**, and rule 1. Explain that no payment is executed.
+3. **Show the evidence:** click **View matched policy** to see the actual PostgreSQL rule. The model extracts transaction details; the policy tool determines the outcome.
+4. **Cross a boundary:** return to Transaction check, expand **Boundary and currency examples**, and run £9,999 followed by £10,000. The outcome changes from Warning to Manual review required at the inclusive threshold.
+5. **Show the limit:** run JPY transfer. No configured policy covers JPY, so the app returns Review required with no matched rule.
+6. **Reuse the API:** open API exchange to show the submitted request and JSON response. Open Swagger UI and run the same `POST /trade/analyze` request from another client.
+7. **Follow the execution:** return to the result and click **View this trace**. Show the local model call and `checkAMLStatus` span with its amount and currency attributes. Finish with Session history.
+
+Presentation message: **Natural language enters through an API; local policies determine the outcome; a trace shows the execution.** OpenAPI describes the HTTP endpoints. The agent invokes the policy tool as a Java method through `@ToolBox`; it does not discover tools from an OpenAPI document. Inference uses Ollama's HTTP API.
 
 Repeat the checks shortly before going on stage so model loading and downloads are out of the presentation path. Rehearse once with external network access disconnected after setup; the configured inference, database, and telemetry services are local.
 
@@ -107,15 +123,24 @@ Example response (duration and trace ID vary):
 
 Blank inputs or inputs over 2,000 characters return HTTP 400. Dependency or agent execution failures return HTTP 503 with a short retry message. Both use the same response envelope with an `ERROR` verdict. Existing clients that expected a plain-text response should read `decision.verdict` and `decision.message` instead.
 
+`GET /trade/policies` returns the current database rules, ordered by currency and descending threshold:
+
+```bash
+curl -sS http://localhost:8080/trade/policies -H 'Accept: application/json'
+```
+
+Each rule contains `id`, `currency`, `threshold`, `verdict`, and `description`. The rule ID and threshold correspond to `decision.ruleId` and `decision.threshold` in the analysis response. No policy editing endpoint is provided. The OpenAPI specification documents the analysis response envelope for HTTP 200, 400, and 503, along with the read-only policy endpoint.
+
 ## How it works
 
 ```mermaid
 flowchart LR
     UI[React dashboard / API client] --> API[Quarkus REST API]
-    API --> Agent["LangChain4j @Agent"]
+    API -->|"POST /trade/analyze"| Agent["LangChain4j @Agent"]
     Agent <--> Ollama[Local Ollama model]
     Agent -->|"@ToolBox"| Tool[checkAMLStatus]
     Tool --> DB[(PostgreSQL demo policies)]
+    API -->|"GET /trade/policies"| DB
     Tool -->|Immediate return| API
     API -->|Structured verdict| UI
     API -. telemetry .-> LGTM[Local Grafana / Tempo / Loki]
@@ -124,7 +149,7 @@ flowchart LR
 
 The agent extracts the transaction and calls the policy tool. `ReturnBehavior.IMMEDIATE` ends inference after the tool, avoiding a second LLM call to paraphrase the result. The request-scoped tool retains the structured decision; the REST layer returns that decision and ignores generated text. Concurrent HTTP requests have isolated decision state.
 
-`ErpClient` and its customer/transaction models remain extension points. The shipped agent does **not** call an ERP, and no ERP server is required. Ollama is the implemented model backend; a KServe deployment is not included.
+The demo uses local Ollama inference and a PostgreSQL policy table. No ERP server is required; a KServe deployment is not included.
 
 ## Keeping the demo fast
 
@@ -139,9 +164,9 @@ Run the repeatable API check to measure your own hardware:
 python3 scripts/check-demo.py --rounds 3
 ```
 
-It verifies the exact UI prompts, amounts, currencies, and verdicts. The first round is excluded from the reported warm median; subsequent rounds can benefit from Ollama's prompt cache. These timings are a rehearsal measurement, not a general model benchmark.
+It verifies all seven exact UI prompts, amounts, currencies, verdicts, and matched rule IDs, including the absence of a match for JPY. The first round is excluded from the reported warm median; subsequent rounds can benefit from Ollama's prompt cache. These timings are a rehearsal measurement, not a general model benchmark.
 
-Local rehearsal on 14 September 2026: **llama3.2 passed all 12 checks**, with a warm median of **0.152 seconds** (maximum 0.165 seconds) on the final configuration. We also tried the smaller **qwen3:0.6b** with reasoning disabled. It returned quickly but failed all 12 checks by not producing valid tool calls, so llama3.2 remains the default. Results depend on hardware, model version, and cache state.
+Local rehearsal on 14 September 2026, using the original four presets over three rounds: **llama3.2 passed all 12 checks**, with a warm median of **0.152 seconds** (maximum 0.165 seconds). We also tried the smaller **qwen3:0.6b** with reasoning disabled. It returned quickly but failed all 12 checks by not producing valid tool calls, so llama3.2 remains the default. Results depend on hardware, model version, and cache state.
 
 ## Configuration and data flow
 
@@ -154,6 +179,8 @@ Configuration lives in `src/main/resources/application.properties`. Override the
 ```
 
 Grafana uses port 3001. The UI constructs its link from the browser hostname; for a different endpoint, set `VITE_GRAFANA_URL` before starting the frontend/app.
+
+Quinoa excludes `/trade` and `/q` from its frontend routing so API requests reach Quarkus directly. The standalone Vite server proxies both prefixes to `http://localhost:8080`, including Swagger and OpenAPI links.
 
 With the supplied development configuration, inference uses local Ollama, policies use a local PostgreSQL container, and telemetry uses local Grafana LGTM. Development request/response logging includes prompts, so use synthetic data for the presentation. Local deployment describes this demo's data path; sovereignty also depends on how the surrounding infrastructure is operated.
 
@@ -169,13 +196,13 @@ Loki query:
 
 ## Verification and screenshots
 
-Backend tests cover policy boundaries, invalid inputs, tool-result handling, and the live local-model API scenarios. Run them with Quarkus continuous testing in dev mode (press `r`), or outside dev mode:
+Backend tests cover policy boundaries, invalid inputs, tool-result handling, live local-model API scenarios, OpenAPI response schemas, and the policy endpoint reading changed database values. Run them with Quarkus continuous testing in dev mode (press `r`), or outside dev mode:
 
 ```bash
 ./mvnw test
 ```
 
-Browser tests require Node.js 20+ and npm on your PATH. Browser regression tests use mocked API responses to check structured verdicts, locked inputs, timeouts, retry, history, and narrow layouts without invoking the LLM:
+Browser tests require Node.js 20+ and npm on your PATH. Browser regression tests use mocked API responses to check structured verdicts, locked inputs, timeouts, retry, history, policy matching, API request/response pairing, boundary examples, and narrow layouts without invoking the LLM:
 
 ```bash
 cd src/main/webui

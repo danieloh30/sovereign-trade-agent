@@ -6,6 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/q': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
       '/trade': {
         target: 'http://localhost:8080',
         changeOrigin: true
@@ -17,4 +21,3 @@ export default defineConfig({
     emptyOutDir: true
   }
 })
-
