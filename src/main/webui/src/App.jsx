@@ -8,8 +8,6 @@ const SCENARIOS = [
   { label: 'Standard GBP', amount: '£3,200', query: "Please verify a £3,200 GBP payment from 'Baker Street Consulting' to a domestic supplier for office furniture." },
   { label: 'Mid-range GBP', amount: '£7,500', query: 'A customer wants to send £7,500 GBP to a consulting firm in Dublin. Check if this triggers any AML rules.' },
   { label: 'EUR transfer', amount: '€9,000', query: 'Check AML compliance for a €9,000 EUR wire transfer from our Paris branch to a Frankfurt-based logistics company.' },
-  { label: 'Below GBP boundary', amount: '£9,999', query: 'Check a 9999 GBP payment to a domestic supplier.' },
-  { label: 'At GBP boundary', amount: '£10,000', query: 'Check a 10000 GBP payment to a domestic supplier.' },
   { label: 'JPY transfer', amount: '¥12,000', query: 'Check a 12000 JPY payment to a supplier in Tokyo.' },
 ]
 
@@ -154,16 +152,11 @@ export default function App() {
           {activeView === 'check' ? <>
             <div className="page-header"><p className="eyebrow">Sovereign AI in action</p><h1>Transaction compliance</h1><p>Describe a payment, check a local policy, and follow the decision.</p></div>
             <div className="scenarios" aria-label="Demo scenarios">
-              {SCENARIOS.slice(0, 4).map((scenario, index) => <button key={scenario.label} className={`scenario ${activeScenario === index ? 'selected' : ''}`} disabled={loading} onClick={() => loadScenario(index)} aria-pressed={activeScenario === index}>
+              {SCENARIOS.map((scenario, index) => <button key={scenario.label} className={`scenario ${activeScenario === index ? 'selected' : ''}`} disabled={loading} onClick={() => loadScenario(index)} aria-pressed={activeScenario === index}>
                 <span className="scenario-amount">{scenario.amount}</span>
                 <span className="scenario-label">{scenario.label}</span>
               </button>)}
             </div>
-            <details className="more-scenarios"><summary>Boundary and currency examples</summary><div className="scenarios extra-scenarios">
-              {SCENARIOS.slice(4).map((scenario, index) => <button key={scenario.label} className={`scenario ${activeScenario === index + 4 ? 'selected' : ''}`} disabled={loading} onClick={() => loadScenario(index + 4)} aria-pressed={activeScenario === index + 4}>
-                <span className="scenario-amount">{scenario.amount}</span><span className="scenario-label">{scenario.label}</span>
-              </button>)}
-            </div></details>
             <form onSubmit={handleSubmit} className="query-card">
               <div className="query-heading"><label htmlFor="query">Transaction query</label><span>One transaction per check</span></div>
               <textarea id="query" value={query} disabled={loading} maxLength={2000} rows={4} required placeholder="Describe an amount, currency, and payment context…" onChange={event => { setQuery(event.target.value); setActiveScenario(null); setResult(null) }} />

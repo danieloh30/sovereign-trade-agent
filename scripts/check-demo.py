@@ -11,8 +11,6 @@ CASES = [
     ("Standard GBP", "Please verify a £3,200 GBP payment from 'Baker Street Consulting' to a domestic supplier for office furniture.", "CLEARED", 3200, "GBP", 3),
     ("Mid-range GBP", "A customer wants to send £7,500 GBP to a consulting firm in Dublin. Check if this triggers any AML rules.", "WARNING", 7500, "GBP", 2),
     ("EUR transfer", "Check AML compliance for a €9,000 EUR wire transfer from our Paris branch to a Frankfurt-based logistics company.", "CLEARED", 9000, "EUR", 5),
-    ("Below GBP boundary", "Check a 9999 GBP payment to a domestic supplier.", "WARNING", 9999, "GBP", 2),
-    ("At GBP boundary", "Check a 10000 GBP payment to a domestic supplier.", "REJECTED", 10000, "GBP", 1),
     ("JPY transfer", "Check a 12000 JPY payment to a supplier in Tokyo.", "REVIEW_REQUIRED", 12000, "JPY", None),
 ]
 parser = argparse.ArgumentParser(description=__doc__)

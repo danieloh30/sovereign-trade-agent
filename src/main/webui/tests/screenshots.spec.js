@@ -11,11 +11,9 @@ test('capture the live demo and session history', async ({ page }) => {
   const cases = [
     ['High-value GBP', 'Manual review required'], ['Standard GBP', 'Cleared'],
     ['Mid-range GBP', 'Warning'], ['EUR transfer', 'Cleared'],
-    ['Below GBP boundary', 'Warning'], ['At GBP boundary', 'Manual review required'],
     ['JPY transfer', 'Review required'],
   ]
   for (const [scenario, verdict] of cases) {
-    if (scenario === 'Below GBP boundary') await page.getByText('Boundary and currency examples', { exact: true }).click()
     await page.getByRole('button', { name: new RegExp(scenario) }).click()
     await page.getByRole('button', { name: /Run analysis/ }).click()
     await expect(page.getByRole('heading', { name: verdict, exact: true })).toBeVisible({ timeout: 40000 })
@@ -46,7 +44,7 @@ test('capture the live demo and session history', async ({ page }) => {
   await tracePage.screenshot({ path: resolve('../../../assets/tempo.png'), fullPage: true })
   await tracePage.close()
   await page.getByRole('button', { name: /Session history/ }).click()
-  await expect(page.getByRole('article', { name: 'Analysis result' })).toHaveCount(7)
+  await expect(page.getByRole('article', { name: 'Analysis result' })).toHaveCount(5)
   await page.screenshot({ path: resolve('../../../assets/session_history.png'), fullPage: true })
   await page.getByRole('button', { name: /Transaction check/ }).click()
   await page.setViewportSize({ width: 390, height: 844 })

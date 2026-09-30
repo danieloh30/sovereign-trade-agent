@@ -21,7 +21,7 @@ main { min-width: 0; width: 100%; max-width: 1360px; padding: 36px 42px 28px; }
 .page-header { margin-bottom: 28px; }
 .page-header h1 { margin: 6px 0 8px; font-size: clamp(25px, 2.5vw, 32px); font-weight: 650; letter-spacing: -.8px; color: #182f48; }
 .page-header > p:last-child { color: #586c80; font-size: 14px; line-height: 1.6; }
-.scenarios { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.scenarios { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 .scenario { padding: 16px; background: #fff; border: 1px solid #d9e2ed; border-radius: 10px; text-align: left; cursor: pointer; }
 .scenario:hover:not(:disabled), .scenario.selected { border-color: #3970ab; background: #f6faff; box-shadow: inset 0 0 0 1px #3970ab; }
 .scenario-amount { font-size: 20px; font-weight: 650; letter-spacing: -.5px; color: #193953; }
@@ -74,10 +74,8 @@ button:disabled, textarea:disabled { opacity: .6; cursor: not-allowed; }
 .audit-query { margin: 16px 22px 0; padding: 14px; border-radius: 6px; background: #f5f8fb; color: #506b82; font-size: 13px; line-height: 1.7; }
 .text-button { border: 0; background: transparent; color: #245585; font: inherit; font-weight: 650; cursor: pointer; }
 .text-button:hover { text-decoration: underline; }
-.more-scenarios { margin: -4px 0 20px; color: #455e77; font-size: 13px; }
 summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
 summary:focus-visible, .table-wrap:focus-visible { outline: 3px solid #5d96d8; outline-offset: 3px; }
-.extra-scenarios { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 10px 0 0; }
 .explanation-card, .message-card, .code-card { background: #fff; border: 1px solid #d9e2ed; border-radius: 10px; padding: 20px; margin-bottom: 20px; color: #304c65; font-size: 14px; line-height: 1.7; }
 .explanation-card h2, .code-heading h2 { font-size: 16px; color: #243e58; margin-bottom: 8px; }
 .message-card .button { margin-top: 12px; }
@@ -101,4 +99,4 @@ summary:focus-visible, .table-wrap:focus-visible { outline: 3px solid #5d96d8; o
 @media (max-width: 1100px) { main { padding: 30px 24px; } .sidebar { width: 210px; padding-inline: 12px; } .scenarios { grid-template-columns: repeat(2, minmax(0, 1fr)); } .input-hint { display: none; } }
 @media (max-width: 700px) { .topbar { height: auto; min-height: 70px; padding: 16px; flex-wrap: wrap; gap: 10px; } .brand { font-size: 16px; } .event { font-size: 11px; gap: 10px; } .app-layout { display: block; } .sidebar { width: 100%; padding: 12px; border-bottom: 1px solid #dfe6ee; border-right: 0; } .sidebar nav { display: flex; gap: 8px; } .sidebar .nav-label, .sidebar > .nav-item, .sidebar-note, .dev-link { display: none; } .nav-item { font-size: 12px; } main { padding: 24px 16px; } .query-card { padding: 16px; } .query-heading > span { display: none; } .scenario { padding: 12px; } .scenario-amount { font-size: 18px; } .decision-facts { grid-template-columns: 1fr; } .flow { gap: 12px; } .flow > span:nth-child(even) { display: none; } .decision-footer { align-items: flex-start; flex-wrap: wrap; } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-@media (max-width: 700px) { .sidebar nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; } .nav-item { min-width: 0; padding: 10px; } .extra-scenarios { grid-template-columns: 1fr; } .decision-heading { align-items: flex-start; } .decision-title { align-items: flex-start; } .verdict-icon { flex-shrink: 0; } .decision-title h2 { font-size: 16px; } .decision-footer { gap: 14px; } .explanation-card, .code-card { padding: 16px; } }
+@media (max-width: 700px) { .sidebar nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; } .nav-item { min-width: 0; padding: 10px; } .decision-heading { align-items: flex-start; } .decision-title { align-items: flex-start; } .verdict-icon { flex-shrink: 0; } .decision-title h2 { font-size: 16px; } .decision-footer { gap: 14px; } .explanation-card, .code-card { padding: 16px; } }

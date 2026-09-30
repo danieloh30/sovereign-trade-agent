@@ -39,8 +39,7 @@ Dev Services starts PostgreSQL and Grafana LGTM, and reuses the local Ollama ins
 
 ![Live transaction check with extracted amount, matched rule, and trace link](assets/web_ui.png)
 
-- Four preset scenarios for quick demo cycling, with verdicts revealed after analysis.
-- Expand **Boundary and currency examples** for £9,999, £10,000, and a 12,000 JPY payment.
+- Five preset scenarios for quick demo cycling, with verdicts revealed after analysis: three GBP payments, one EUR payment, and one JPY payment without policy coverage.
 - Structured verdicts from the policy tool, displayed immediately without a typing delay.
 - Extracted amount, currency, matched rule, model name, and server duration.
 - **View this trace** opens the specific request in Grafana Tempo.
@@ -57,19 +56,20 @@ Dev Services starts PostgreSQL and Grafana LGTM, and reuses the local Ollama ins
 
 The two review labels distinguish a matched policy requiring manual review (`REJECTED`) from an unverified transaction or missing policy coverage (`REVIEW_REQUIRED`). These API verdict codes remain unchanged for existing clients.
 
-![Session history from seven real local model checks](assets/session_history.png)
+![Session history from five real local model checks](assets/session_history.png)
 
 Session history lives in browser memory and clears on refresh. It is a demo convenience, not a durable audit store. A [mobile screenshot](assets/mobile_ui.png) shows the narrow layout.
 
 ## A short presentation sequence
 
-1. **Before presenting:** start the app, wait for Grafana, then run `python3 scripts/check-demo.py --rounds 1`. This checks all seven scenarios and warms the model.
+1. **Before presenting:** start the app, wait for Grafana, then run `python3 scripts/check-demo.py --rounds 1`. This checks all five scenarios and warms the model.
 2. **Run one payment:** select High-value GBP (£12,500). Show the extracted amount, **Manual review required**, and rule 1. Explain that no payment is executed.
 3. **Show the evidence:** click **View matched policy** to see the actual PostgreSQL rule. The model extracts transaction details; the policy tool determines the outcome.
-4. **Cross a boundary:** return to Transaction check, expand **Boundary and currency examples**, and run £9,999 followed by £10,000. The outcome changes from Warning to Manual review required at the inclusive threshold.
-5. **Show the limit:** run JPY transfer. No configured policy covers JPY, so the app returns Review required with no matched rule.
-6. **Reuse the API:** open API exchange to show the submitted request and JSON response. Open Swagger UI and run the same `POST /trade/analyze` request from another client.
-7. **Follow the execution:** return to the result and click **View this trace**. Show the local model call and `checkAMLStatus` span with its amount and currency attributes. Finish with Session history.
+4. **Compare outcomes:** return to Transaction check and run Standard GBP, Mid-range GBP, and EUR transfer. Then run JPY transfer: no configured policy covers JPY, so the app returns Review required with no matched rule.
+5. **Reuse the API:** open API exchange to show the submitted request and JSON response. Open Swagger UI and run the same `POST /trade/analyze` request from another client.
+6. **Follow the execution:** return to the result and click **View this trace**. Show the local model call and `checkAMLStatus` span with its amount and currency attributes. Finish with Session history.
+
+To demonstrate an exact policy boundary during questions, edit the transaction query to compare £9,999 and £10,000. The inclusive GBP threshold is also covered by backend tests.
 
 Presentation message: **Natural language enters through an API; local policies determine the outcome; a trace shows the execution.** OpenAPI describes the HTTP endpoints. The agent invokes the policy tool as a Java method through `@ToolBox`; it does not discover tools from an OpenAPI document. Inference uses Ollama's HTTP API.
 
@@ -164,7 +164,7 @@ Run the repeatable API check to measure your own hardware:
 python3 scripts/check-demo.py --rounds 3
 ```
 
-It verifies all seven exact UI prompts, amounts, currencies, verdicts, and matched rule IDs, including the absence of a match for JPY. The first round is excluded from the reported warm median; subsequent rounds can benefit from Ollama's prompt cache. These timings are a rehearsal measurement, not a general model benchmark.
+It verifies all five exact UI prompts, amounts, currencies, verdicts, and matched rule IDs, including the absence of a match for JPY. The first round is excluded from the reported warm median; subsequent rounds can benefit from Ollama's prompt cache. These timings are a rehearsal measurement, not a general model benchmark.
 
 Local rehearsal on 14 September 2026, using the original four presets over three rounds: **llama3.2 passed all 12 checks**, with a warm median of **0.152 seconds** (maximum 0.165 seconds). We also tried the smaller **qwen3:0.6b** with reasoning disabled. It returned quickly but failed all 12 checks by not producing valid tool calls, so llama3.2 remains the default. Results depend on hardware, model version, and cache state.
 
@@ -202,7 +202,7 @@ Backend tests cover policy boundaries, invalid inputs, tool-result handling, liv
 ./mvnw test
 ```
 
-Browser tests require Node.js 20+ and npm on your PATH. Browser regression tests use mocked API responses to check structured verdicts, locked inputs, timeouts, retry, history, policy matching, API request/response pairing, boundary examples, and narrow layouts without invoking the LLM:
+Browser tests require Node.js 20+ and npm on your PATH. Browser regression tests use mocked API responses to check structured verdicts, locked inputs, timeouts, retry, history, policy matching, API request/response pairing, unsupported currency handling, and narrow layouts without invoking the LLM:
 
 ```bash
 cd src/main/webui

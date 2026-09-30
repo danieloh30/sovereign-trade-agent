@@ -13,8 +13,8 @@ test('reveals outcomes after analysis and shows the actual matched database rule
   await page.route('**/trade/analyze', route => route.fulfill({ json: result }))
   await page.route('**/trade/policies', route => route.fulfill({ json: rules }))
   await page.goto('/')
-  const scenarios = page.getByRole('button', { name: /High-value GBP|Standard GBP|Mid-range GBP|EUR transfer/ })
-  await expect(scenarios).toHaveCount(4)
+  const scenarios = page.getByRole('button', { name: /High-value GBP|Standard GBP|Mid-range GBP|EUR transfer|JPY transfer/ })
+  await expect(scenarios).toHaveCount(5)
   for (const scenario of await scenarios.all()) await expect(scenario).not.toContainText(/Cleared|Warning|Rejected|Manual review/)
   await page.getByRole('button', { name: /High-value GBP/ }).click()
   await page.getByRole('button', { name: /Run analysis/ }).click()
@@ -94,15 +94,16 @@ test('retries policy loading and preserves navigation on a narrow screen', async
   await page.screenshot({ path: test.info().outputPath('mobile-api.png'), fullPage: true })
 })
 
-test('the boundary and JPY examples submit their exact amounts and currencies', async ({ page }) => {
-  await page.route('**/trade/analyze', route => route.fulfill({ json: result }))
+test('the JPY scenario submits its currency and displays a review without a matched rule', async ({ page }) => {
+  await page.route('**/trade/analyze', route => route.fulfill({ json: {
+    ...result, decision: { verdict: 'REVIEW_REQUIRED', message: 'No local policy covers JPY.', amount: 12000, currency: 'JPY', ruleId: null, threshold: null },
+  } }))
   await page.goto('/')
-  await page.getByText('Boundary and currency examples', { exact: true }).click()
-  for (const [label, amount, currency] of [['Below GBP boundary', '9999', 'GBP'], ['At GBP boundary', '10000', 'GBP'], ['JPY transfer', '12000', 'JPY']]) {
-    await page.getByRole('button', { name: new RegExp(label) }).click()
-    const request = page.waitForRequest('**/trade/analyze')
-    await page.getByRole('button', { name: /Run analysis/ }).click()
-    expect((await request).postData()).toContain(`${amount} ${currency}`)
-    await expect(page.getByRole('article')).toBeVisible()
-  }
+  await page.getByRole('button', { name: /JPY transfer/ }).click()
+  const request = page.waitForRequest('**/trade/analyze')
+  await page.getByRole('button', { name: /Run analysis/ }).click()
+  expect((await request).postData()).toContain('12000 JPY')
+  await expect(page.getByRole('heading', { name: 'Review required', exact: true })).toBeVisible()
+  await expect(page.getByRole('article')).toContainText('No verified match')
+  await expect(page.getByRole('button', { name: 'View matched policy' })).toHaveCount(0)
 })
