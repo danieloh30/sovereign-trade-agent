@@ -27,8 +27,10 @@ for round_number in range(args.rounds):
         with urllib.request.urlopen(request, timeout=40) as response:
             result = json.load(response)
         decision = result["decision"]
-        passed = decision["verdict"] == expected and decision["amount"] == amount and decision["currency"] == currency and decision["ruleId"] == rule_id
-        row = {"round": round_number + 1, "case": name, "model": result["model"], "passed": passed, "seconds": round(time.perf_counter() - started, 3), "decision": decision}
+        review_id = result.get("reviewRequestId")
+        review_matches = isinstance(review_id, int) and review_id > 0 if expected == "REJECTED" else review_id is None
+        passed = decision["verdict"] == expected and decision["amount"] == amount and decision["currency"] == currency and decision["ruleId"] == rule_id and review_matches
+        row = {"round": round_number + 1, "case": name, "model": result["model"], "passed": passed, "seconds": round(time.perf_counter() - started, 3), "decision": decision, "reviewRequestId": review_id}
         results.append(row)
         print(json.dumps(row, ensure_ascii=False), flush=True)
 warm = [row["seconds"] for row in results if row["round"] > 1]

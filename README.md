@@ -43,6 +43,7 @@ Dev Services starts PostgreSQL and Grafana LGTM, and reuses the local Ollama ins
 - Structured verdicts from the policy tool, displayed immediately without a typing delay.
 - Extracted amount, currency, matched rule, model name, and server duration.
 - **View this trace** opens the specific request in Grafana Tempo.
+- **Open human review** hands a matched manual-review case to a person, with approval or decline recorded separately from the policy verdict.
 - Inputs lock during a request; a 35-second browser timeout restores the retry button.
 - Keyboard-accessible navigation and a responsive layout.
 
@@ -56,6 +57,19 @@ Dev Services starts PostgreSQL and Grafana LGTM, and reuses the local Ollama ins
 
 The two review labels distinguish a matched policy requiring manual review (`REJECTED`) from an unverified transaction or missing policy coverage (`REVIEW_REQUIRED`). These API verdict codes remain unchanged for existing clients.
 
+**Human review** lists the latest 50 review requests from PostgreSQL. A matched `REJECTED` result creates a `PENDING` request and returns its `reviewRequestId` immediately. Open it from the result, inspect the original query and matched policy, then enter a reviewer name and note and choose **Approve review** or **Decline review**. The recorded outcome, reviewer, note, time, and review trace remain visible after a browser refresh. An older request can still be opened from its analysis result even when it is outside the latest 50.
+
+![A pending request with its original policy evidence and human review form](assets/human_review.png)
+
+The form offers **Use approval example** and **Use decline example** to fill the note without submitting a decision. Edit the example to match what you checked:
+
+- **Approve:** “Supplier identity and invoice verified. Payment purpose confirmed; approved after manual review.”
+- **Decline:** “Supplier identity could not be verified and supporting documents are missing. Declined pending further evidence.”
+
+[View a completed human review](assets/human_review_completed.png).
+
+The original policy verdict remains `REJECTED`; the separate human status becomes `APPROVED` or `DECLINED`. Neither action executes a payment. Unsupported currencies such as JPY need policy coverage and do not get an approval form. Reviewer names are self-reported for this local demo; there is no authentication or reviewer-role enforcement. Review records survive browser refreshes, but the default Dev Services database and schema are recreated when dev mode restarts.
+
 ![Session history from five real local model checks](assets/session_history.png)
 
 Session history lives in browser memory and clears on refresh. It is a demo convenience, not a durable audit store. A [mobile screenshot](assets/mobile_ui.png) shows the narrow layout.
@@ -65,13 +79,14 @@ Session history lives in browser memory and clears on refresh. It is a demo conv
 1. **Before presenting:** start the app, wait for Grafana, then run `python3 scripts/check-demo.py --rounds 1`. This checks all five scenarios and warms the model.
 2. **Run one payment:** select High-value GBP (£12,500). Show the extracted amount, **Manual review required**, and rule 1. Explain that no payment is executed.
 3. **Show the evidence:** click **View matched policy** to see the actual PostgreSQL rule. The model extracts transaction details; the policy tool determines the outcome.
-4. **Compare outcomes:** return to Transaction check and run Standard GBP, Mid-range GBP, and EUR transfer. Then run JPY transfer: no configured policy covers JPY, so the app returns Review required with no matched rule.
-5. **Reuse the API:** open API exchange to show the submitted request and JSON response. Open Swagger UI and run the same `POST /trade/analyze` request from another client.
-6. **Follow the execution:** return to the result and click **View this trace**. Show the local model call and `checkAMLStatus` span with its amount and currency attributes. Finish with Session history.
+4. **Bring in a person:** click **Open human review**, add a reviewer name and note, and approve or decline the request. Show that the original policy evidence remains unchanged. Refresh the browser and open Human review to demonstrate the saved decision. Session history resets on refresh, so skip the refresh if keeping it for the final step.
+5. **Compare outcomes:** return to Transaction check and run Standard GBP, Mid-range GBP, and EUR transfer. Then run JPY transfer: no configured policy covers JPY, so the app returns Review required with no matched rule or approval form.
+6. **Reuse the API:** open API exchange to show the submitted request and JSON response. Open Swagger UI and show `POST /trade/analyze` plus the review endpoints.
+7. **Follow the execution:** return to the result and click **View this trace**. Show the local model call and `checkAMLStatus` span. A high-value analysis also contains `requestHumanReview`; the separate human decision trace contains `recordHumanDecision`. Finish with Session history.
 
 To demonstrate an exact policy boundary during questions, edit the transaction query to compare £9,999 and £10,000. The inclusive GBP threshold is also covered by backend tests.
 
-Presentation message: **Natural language enters through an API; local policies determine the outcome; a trace shows the execution.** OpenAPI describes the HTTP endpoints. The agent invokes the policy tool as a Java method through `@ToolBox`; it does not discover tools from an OpenAPI document. Inference uses Ollama's HTTP API.
+Presentation message: **Natural language enters through an API; local policies determine the outcome; a person resolves flagged cases; traces show both steps.** OpenAPI describes the HTTP endpoints. The agent invokes the policy tool as a Java method through `@ToolBox`; it does not discover tools from an OpenAPI document. Inference uses Ollama's HTTP API.
 
 Repeat the checks shortly before going on stage so model loading and downloads are out of the presentation path. Rehearse once with external network access disconnected after setup; the configured inference, database, and telemetry services are local.
 
@@ -117,7 +132,8 @@ Example response (duration and trace ID vary):
   },
   "model": "llama3.2",
   "traceId": "<request trace ID>",
-  "durationMs": 150
+  "durationMs": 150,
+  "reviewRequestId": 1
 }
 ```
 
@@ -129,7 +145,17 @@ Blank inputs or inputs over 2,000 characters return HTTP 400. Dependency or agen
 curl -sS http://localhost:8080/trade/policies -H 'Accept: application/json'
 ```
 
-Each rule contains `id`, `currency`, `threshold`, `verdict`, and `description`. The rule ID and threshold correspond to `decision.ruleId` and `decision.threshold` in the analysis response. No policy editing endpoint is provided. The OpenAPI specification documents the analysis response envelope for HTTP 200, 400, and 503, along with the read-only policy endpoint.
+Each rule contains `id`, `currency`, `threshold`, `verdict`, and `description`. The rule ID and threshold correspond to `decision.ruleId` and `decision.threshold` in the analysis response. No policy editing endpoint is provided. The OpenAPI specification documents the analysis response envelope for HTTP 200, 400, and 503, along with the policy and human review endpoints.
+
+`reviewRequestId` is non-null only for a matched manual-review policy. Use `GET /trade/reviews` to list the latest 50 requests, or `GET /trade/reviews/{id}` to retrieve a specific request. Record the human decision with JSON:
+
+```bash
+curl -sS http://localhost:8080/trade/reviews/1/decision \
+  -H 'Content-Type: application/json' \
+  -d '{"outcome":"APPROVED","reviewer":"Daniel","note":"Supplier details checked for this demo."}'
+```
+
+Use the ID returned by analysis. `outcome` accepts `APPROVED` or `DECLINED`; reviewer name (1–80 characters) and note (1–1,000 characters) are required. The response contains the original query and decision snapshot, status, reviewer, note, timestamps, and analysis/review trace IDs. An identical retry returns the saved decision without changing its audit fields. A conflicting decision returns HTTP 409, invalid fields return 400, and a missing request returns 404. Concurrent reviewers cannot overwrite a recorded decision.
 
 ## How it works
 
@@ -143,11 +169,19 @@ flowchart LR
     API -->|"GET /trade/policies"| DB
     Tool -->|Immediate return| API
     API -->|Structured verdict| UI
+    API -->|Matched manual-review case| Review[HumanReviewAgent coordinator]
+    Review --> Reviews[(PostgreSQL review requests)]
+    UI -->|"GET /trade/reviews"| Review
+    Human[Human reviewer] -->|Name, note, approve / decline| UI
+    UI -->|"POST /trade/reviews/:id/decision"| Review
     API -. telemetry .-> LGTM[Local Grafana / Tempo / Loki]
     Tool -. tool span .-> LGTM
+    Review -. handoff / decision spans .-> LGTM
 ```
 
 The agent extracts the transaction and calls the policy tool. `ReturnBehavior.IMMEDIATE` ends inference after the tool, avoiding a second LLM call to paraphrase the result. The request-scoped tool retains the structured decision; the REST layer returns that decision and ignores generated text. Concurrent HTTP requests have isolated decision state.
+
+`HumanReviewAgent` is a deterministic CDI coordinator for a human-in-the-loop (HITL) handoff, not another LLM agent. It saves a snapshot of the verified policy evidence and returns immediately. The browser later submits a real person's decision through a separate HTTP request; analysis does not block waiting for a human. This simple demo does not use LangChain4j's suspended `@HumanInTheLoop` workflow, and the model has no tool for approving reviews.
 
 The demo uses local Ollama inference and a PostgreSQL policy table. No ERP server is required; a KServe deployment is not included.
 
@@ -164,7 +198,7 @@ Run the repeatable API check to measure your own hardware:
 python3 scripts/check-demo.py --rounds 3
 ```
 
-It verifies all five exact UI prompts, amounts, currencies, verdicts, and matched rule IDs, including the absence of a match for JPY. The first round is excluded from the reported warm median; subsequent rounds can benefit from Ollama's prompt cache. These timings are a rehearsal measurement, not a general model benchmark.
+It verifies all five exact UI prompts, amounts, currencies, verdicts, matched rule IDs, and human-review handoffs, including the absence of a match or approval request for JPY. Each high-value check creates a pending review request; the rehearsal script does not resolve it. The first round is excluded from the reported warm median; subsequent rounds can benefit from Ollama's prompt cache. These timings are a rehearsal measurement, not a general model benchmark.
 
 Local rehearsal on 14 September 2026, using the original four presets over three rounds: **llama3.2 passed all 12 checks**, with a warm median of **0.152 seconds** (maximum 0.165 seconds). We also tried the smaller **qwen3:0.6b** with reasoning disabled. It returned quickly but failed all 12 checks by not producing valid tool calls, so llama3.2 remains the default. Results depend on hardware, model version, and cache state.
 
@@ -196,13 +230,13 @@ Loki query:
 
 ## Verification and screenshots
 
-Backend tests cover policy boundaries, invalid inputs, tool-result handling, live local-model API scenarios, OpenAPI response schemas, and the policy endpoint reading changed database values. Run them with Quarkus continuous testing in dev mode (press `r`), or outside dev mode:
+Backend tests cover policy boundaries, invalid inputs, tool-result handling, live local-model API scenarios, OpenAPI response schemas, the policy endpoint reading changed database values, review persistence, required reviewer fields, idempotent retries, and concurrent decisions. Run them with Quarkus continuous testing in dev mode (press `r`), or outside dev mode:
 
 ```bash
 ./mvnw test
 ```
 
-Browser tests require Node.js 20+ and npm on your PATH. Browser regression tests use mocked API responses to check structured verdicts, locked inputs, timeouts, retry, history, policy matching, API request/response pairing, unsupported currency handling, and narrow layouts without invoking the LLM:
+Browser tests require Node.js 20+ and npm on your PATH. Browser regression tests use mocked API responses to check structured verdicts, locked inputs, timeouts, retry, history, policy matching, API request/response pairing, unsupported currency handling, human approval/decline, conflict refresh, saved reviews after reload, and narrow layouts without invoking the LLM:
 
 ```bash
 cd src/main/webui

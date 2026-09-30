@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import { VERDICTS } from './verdicts'
 import { ApiView, PolicyView } from './PresentationViews'
+import ReviewInbox, { REVIEW_STATUSES } from './ReviewInbox'
 
 const SCENARIOS = [
   { label: 'High-value GBP', amount: '£12,500', query: "I have a customer, 'London Tech Ltd', trying to move £12,500 to a new vendor in Estonia for 'Cloud Services'. Before I approve this, check our local AML rules." },
@@ -26,7 +27,7 @@ function amountLabel(decision) {
   return `${new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(decision.amount)} ${decision.currency || ''}`.trim()
 }
 
-function DecisionCard({ result, query, compact = false, onViewPolicy }) {
+function DecisionCard({ result, query, compact = false, onViewPolicy, onReview, review }) {
   const { decision } = result
   const verdict = VERDICTS[decision.verdict] || VERDICTS.REVIEW_REQUIRED
   return (
@@ -41,6 +42,7 @@ function DecisionCard({ result, query, compact = false, onViewPolicy }) {
         <div><dt>Extracted transaction</dt><dd>{amountLabel(decision)}</dd></div>
         <div><dt>Matched policy</dt><dd>{decision.ruleId != null ? `Rule ${decision.ruleId} · ≥ ${new Intl.NumberFormat('en-GB').format(decision.threshold)} ${decision.currency}` : 'No verified match'}</dd></div>
       </dl>
+      {result.reviewRequestId != null && <div className="review-handoff"><div><strong>Human review #{result.reviewRequestId}</strong><p>{REVIEW_STATUSES[review?.status] || 'Awaiting human review'}</p></div><button className="button secondary" onClick={() => onReview(result.reviewRequestId)}>Open human review</button></div>}
       <div className="decision-footer">
         <span>{result.model ? `Model: ${result.model}` : 'Request did not complete'}</span>
         {decision.ruleId != null && onViewPolicy && <button className="text-button" onClick={onViewPolicy}>View matched policy</button>}
@@ -59,8 +61,20 @@ export default function App() {
   const [history, setHistory] = useState([])
   const [waiting, setWaiting] = useState(0)
   const [exchange, setExchange] = useState(null)
+  const [requestedReviewId, setRequestedReviewId] = useState(null)
+  const [reviewRecords, setReviewRecords] = useState({})
+  const recordReviews = useCallback(records => setReviewRecords(previous => {
+    const next = { ...previous }
+    records.forEach(review => { next[review.id] = review })
+    return next
+  }), [])
   const controller = useRef(null)
   const started = useRef(0)
+
+  function openReview(id) {
+    setRequestedReviewId(id)
+    setActiveView('reviews')
+  }
 
   useEffect(() => () => controller.current?.abort(), [])
   useEffect(() => {
@@ -124,6 +138,7 @@ export default function App() {
     }
     setResult(next)
     setExchange(nextExchange)
+    if (next.reviewRequestId != null) setReviewRecords(previous => ({ ...previous, [next.reviewRequestId]: { status: 'PENDING' } }))
     setHistory(previous => [...previous, { id: crypto.randomUUID(), query: submittedQuery, result: next, time: new Date().toLocaleTimeString('en-GB') }])
   }
 
@@ -139,6 +154,7 @@ export default function App() {
           <nav aria-label="Demo navigation">
             <button className={`nav-item ${activeView === 'check' ? 'active' : ''}`} onClick={() => setActiveView('check')} aria-current={activeView === 'check' ? 'page' : undefined}><span aria-hidden="true">▣</span>Transaction check</button>
             <button className={`nav-item ${activeView === 'policies' ? 'active' : ''}`} onClick={() => setActiveView('policies')} aria-current={activeView === 'policies' ? 'page' : undefined}><span aria-hidden="true">▤</span>Demo policies</button>
+            <button className={`nav-item ${activeView === 'reviews' ? 'active' : ''}`} onClick={() => { setRequestedReviewId(null); setActiveView('reviews') }} aria-current={activeView === 'reviews' ? 'page' : undefined}><span aria-hidden="true">♧</span>Human review</button>
             <button className={`nav-item ${activeView === 'api' ? 'active' : ''}`} onClick={() => setActiveView('api')} aria-current={activeView === 'api' ? 'page' : undefined}><span aria-hidden="true">↔</span>API exchange</button>
             <button className={`nav-item ${activeView === 'audit' ? 'active' : ''}`} onClick={() => setActiveView('audit')} aria-current={activeView === 'audit' ? 'page' : undefined}><span aria-hidden="true">≡</span>Session history<span className="count">{history.length}</span></button>
           </nav>
@@ -164,14 +180,15 @@ export default function App() {
             </form>
             <div aria-live="polite" aria-atomic="true" aria-busy={loading}>
               {loading && <div className="loading-card" role="status"><span className="spinner" aria-hidden="true" /><div><strong>Checking with the local agent</strong><p>{waiting >= 8 ? 'The model may be loading. The first check can take longer.' : 'Extracting the transaction and checking the policy database.'}</p></div><span className="duration">{waiting.toFixed(1)}s</span></div>}
-              {result && <DecisionCard result={result} onViewPolicy={() => setActiveView('policies')} />}
+              {result && <DecisionCard result={result} onViewPolicy={() => setActiveView('policies')} onReview={openReview} review={reviewRecords[result.reviewRequestId]} />}
             </div>
             <div className="flow" aria-label="How the demo works"><span><b>01</b>Local LLM extracts</span><span aria-hidden="true">→</span><span><b>02</b>Policy tool decides</span><span aria-hidden="true">→</span><span><b>03</b>OpenTelemetry records</span></div>
             <p className="policy-note">Illustrative AML policies for this demo. A cleared result means no configured threshold was triggered.</p>
           </> : activeView === 'policies' ? <PolicyView decision={result?.decision} />
+            : activeView === 'reviews' ? <ReviewInbox requestedId={requestedReviewId} onRecords={recordReviews} onBack={() => setActiveView('check')} traceLink={traceId => grafanaLink('tempo', traceId)} />
             : activeView === 'api' ? <ApiView query={query.trim()} exchange={exchange} /> : <>
             <div className="page-header"><p className="eyebrow">This browser session</p><h1>Session history</h1><p>Queries, verified verdicts, and their traces. Refreshing the page clears this history.</p></div>
-            {history.length === 0 ? <div className="empty-state"><span aria-hidden="true">≡</span><h2>No checks yet</h2><p>Run a transaction check to start your session history.</p><button className="button secondary" onClick={() => setActiveView('check')}>Go to transaction check</button></div> : <div className="history-list">{history.slice().reverse().map(entry => <section key={entry.id}><p className="history-time">{entry.time}</p><DecisionCard result={entry.result} query={entry.query} compact /></section>)}</div>}
+            {history.length === 0 ? <div className="empty-state"><span aria-hidden="true">≡</span><h2>No checks yet</h2><p>Run a transaction check to start your session history.</p><button className="button secondary" onClick={() => setActiveView('check')}>Go to transaction check</button></div> : <div className="history-list">{history.slice().reverse().map(entry => <section key={entry.id}><p className="history-time">{entry.time}</p><DecisionCard result={entry.result} query={entry.query} compact onReview={openReview} review={reviewRecords[entry.result.reviewRequestId]} /></section>)}</div>}
           </>}
         </main>
       </div>

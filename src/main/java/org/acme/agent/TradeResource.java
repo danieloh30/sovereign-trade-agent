@@ -28,13 +28,14 @@ import org.jboss.logging.Logger;
 public class TradeResource {
     private static final Logger LOG = Logger.getLogger(TradeResource.class);
     @Inject TradeAnalyzer analyzer;
+    @Inject HumanReviewAgent reviews;
     @ConfigProperty(name = "quarkus.langchain4j.ollama.chat-model.model-id") String model;
 
     @POST
     @Path("/analyze")
     @Consumes(MediaType.TEXT_PLAIN)
     @Operation(summary = "Check one payment against local demo policies",
-            description = "The local model extracts an amount and currency. The policy tool supplies the verdict; no payment is executed. REJECTED is the legacy code for manual review under a matched policy. REVIEW_REQUIRED means the transaction or policy match could not be verified.")
+            description = "The local model extracts an amount and currency. The policy tool supplies the verdict; no payment is executed. REJECTED is the legacy code for manual review under a matched policy and creates a pending human review identified by reviewRequestId. REVIEW_REQUIRED means the transaction or policy match could not be verified and does not create an approvable request.")
     @RequestBody(required = true, content = @Content(mediaType = MediaType.TEXT_PLAIN,
             schema = @Schema(type = org.eclipse.microprofile.openapi.annotations.enums.SchemaType.STRING),
             example = "Check a £12,500 GBP payment from London Tech Ltd."))
@@ -50,7 +51,12 @@ public class TradeResource {
             return response(400, error("Enter one transaction using 1–2,000 characters."), start);
         }
         try {
-            return response(200, analyzer.analyze(userPrompt.strip()), start);
+            String query = userPrompt.strip();
+            var decision = analyzer.analyze(query);
+            var context = Span.current().getSpanContext();
+            Long reviewRequestId = reviews.requestReview(query, decision, model,
+                    context.isValid() ? context.getTraceId() : null);
+            return response(200, decision, start, reviewRequestId);
         } catch (RuntimeException e) {
             LOG.error("Transaction analysis failed; inspect the request trace for details", e);
             return response(503, error("Analysis unavailable. Check Ollama and PostgreSQL, then retry."), start);
@@ -74,9 +80,13 @@ public class TradeResource {
     }
 
     private Response response(int status, TradeDecision decision, long start) {
+        return response(status, decision, start, null);
+    }
+
+    private Response response(int status, TradeDecision decision, long start, Long reviewRequestId) {
         var context = Span.current().getSpanContext();
         return Response.status(status).entity(new AnalysisResponse(decision, model,
                 context.isValid() ? context.getTraceId() : null,
-                (System.nanoTime() - start) / 1_000_000)).build();
+                (System.nanoTime() - start) / 1_000_000, reviewRequestId)).build();
     }
 }

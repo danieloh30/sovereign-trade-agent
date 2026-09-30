@@ -13,7 +13,7 @@ class TradeResourceTest {
     @CsvSource({"12500,GBP,REJECTED,1", "7500,GBP,WARNING,2", "3200,GBP,CLEARED,3", "9000,EUR,CLEARED,5",
             "9999,GBP,WARNING,2", "10000,GBP,REJECTED,1"})
     void returnsVerifiedToolDecisions(int amount, String currency, String verdict, int ruleId) {
-        given().contentType("text/plain")
+        var response = given().contentType("text/plain")
                 .body("Check AML status for a " + amount + " " + currency + " transaction.")
                 .when().post("/trade/analyze")
                 .then().statusCode(200).contentType("application/json")
@@ -23,6 +23,7 @@ class TradeResourceTest {
                 .body("decision.amount", equalTo((float) amount))
                 .body("model", not(emptyOrNullString()))
                 .body("durationMs", greaterThanOrEqualTo(0));
+        response.body("reviewRequestId", verdict.equals("REJECTED") ? notNullValue() : nullValue());
     }
 
     @Test
@@ -31,7 +32,8 @@ class TradeResourceTest {
                 .when().post("/trade/analyze").then().statusCode(200)
                 .body("decision.verdict", equalTo("REVIEW_REQUIRED"))
                 .body("decision.currency", equalTo("JPY"))
-                .body("decision.ruleId", nullValue());
+                .body("decision.ruleId", nullValue())
+                .body("reviewRequestId", nullValue());
     }
 
     @Test
