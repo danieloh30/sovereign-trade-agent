@@ -38,7 +38,7 @@ Dev Services starts PostgreSQL and Grafana LGTM, and reuses the local Ollama ins
 
 ![Live transaction check with extracted amount, matched rule, and trace link](assets/web_ui.png)
 
-- Four preset scenarios with expected outcomes for quick demo cycling.
+- Four preset scenarios for quick demo cycling, with verdicts revealed after analysis.
 - Structured verdicts from the policy tool, displayed immediately without a typing delay.
 - Extracted amount, currency, matched rule, model name, and server duration.
 - **View this trace** opens the specific request in Grafana Tempo.

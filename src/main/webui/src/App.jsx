@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 const SCENARIOS = [
-  { label: 'High-value GBP', amount: '£12,500', expected: 'REJECTED', query: "I have a customer, 'London Tech Ltd', trying to move £12,500 to a new vendor in Estonia for 'Cloud Services'. Before I approve this, check our local AML rules." },
-  { label: 'Standard GBP', amount: '£3,200', expected: 'CLEARED', query: "Please verify a £3,200 GBP payment from 'Baker Street Consulting' to a domestic supplier for office furniture." },
-  { label: 'Mid-range GBP', amount: '£7,500', expected: 'WARNING', query: 'A customer wants to send £7,500 GBP to a consulting firm in Dublin. Check if this triggers any AML rules.' },
-  { label: 'EUR transfer', amount: '€9,000', expected: 'CLEARED', query: 'Check AML compliance for a €9,000 EUR wire transfer from our Paris branch to a Frankfurt-based logistics company.' },
+  { label: 'High-value GBP', amount: '£12,500', query: "I have a customer, 'London Tech Ltd', trying to move £12,500 to a new vendor in Estonia for 'Cloud Services'. Before I approve this, check our local AML rules." },
+  { label: 'Standard GBP', amount: '£3,200', query: "Please verify a £3,200 GBP payment from 'Baker Street Consulting' to a domestic supplier for office furniture." },
+  { label: 'Mid-range GBP', amount: '£7,500', query: 'A customer wants to send £7,500 GBP to a consulting firm in Dublin. Check if this triggers any AML rules.' },
+  { label: 'EUR transfer', amount: '€9,000', query: 'Check AML compliance for a €9,000 EUR wire transfer from our Paris branch to a Frankfurt-based logistics company.' },
 ]
 
 const VERDICTS = {
@@ -147,7 +147,7 @@ export default function App() {
             <div className="page-header"><p className="eyebrow">Sovereign AI in action</p><h1>Transaction compliance</h1><p>Describe a payment, check a local policy, and follow the decision.</p></div>
             <div className="scenarios" aria-label="Demo scenarios">
               {SCENARIOS.map((scenario, index) => <button key={scenario.label} className={`scenario ${activeScenario === index ? 'selected' : ''}`} disabled={loading} onClick={() => loadScenario(index)} aria-pressed={activeScenario === index}>
-                <span className="scenario-top"><span className="scenario-amount">{scenario.amount}</span><span className={`expected ${scenario.expected.toLowerCase()}`}>{VERDICTS[scenario.expected].label}</span></span>
+                <span className="scenario-amount">{scenario.amount}</span>
                 <span className="scenario-label">{scenario.label}</span>
               </button>)}
             </div>

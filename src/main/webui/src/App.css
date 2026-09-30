@@ -24,13 +24,8 @@ main { min-width: 0; width: 100%; max-width: 1360px; padding: 36px 42px 28px; }
 .scenarios { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 .scenario { padding: 16px; background: #fff; border: 1px solid #d9e2ed; border-radius: 10px; text-align: left; cursor: pointer; }
 .scenario:hover:not(:disabled), .scenario.selected { border-color: #3970ab; background: #f6faff; box-shadow: inset 0 0 0 1px #3970ab; }
-.scenario-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .scenario-amount { font-size: 20px; font-weight: 650; letter-spacing: -.5px; color: #193953; }
 .scenario-label { display: block; margin-top: 12px; color: #5b6f84; font-size: 12px; }
-.expected { font-size: 10px; font-weight: 650; padding: 4px 6px; border-radius: 4px; }
-.expected.rejected { background: #fbe9e7; color: #a0352d; }
-.expected.warning { background: #fff1cf; color: #805900; }
-.expected.cleared { background: #e4f3ed; color: #17614b; }
 .query-card { padding: 22px; background: #fff; border: 1px solid #d9e2ed; border-radius: 12px; margin-bottom: 20px; }
 .query-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .query-heading label { font-size: 14px; font-weight: 650; color: #243e58; }
